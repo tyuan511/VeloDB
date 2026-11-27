@@ -4,7 +4,7 @@ use crate::ui::data_grid::compact_cell_preview;
 use crate::ui::icons::hgi;
 use crate::ui::sidebar::{build_sidebar_tooltip, SIDEBAR_TOOLTIP_DELAY};
 use crate::ui::state::{DrawerTab, InspectorViewMode, TabKind};
-use crate::ui::theme::VeloTheme;
+use crate::ui::theme::{with_alpha, VeloTheme};
 use gpui::{
     div, prelude::*, px, AnyElement, Context, InteractiveElement, MouseButton, ParentElement,
     Styled,
@@ -1278,7 +1278,7 @@ impl VeloDbApp {
             .bottom_0()
             .w(px(inspector_w))
             .occlude()
-            .bg(t.sidebar_bg)
+            .bg(with_alpha(t.sidebar_bg, 1.0))
             .border_l_1()
             .border_color(t.border_strong)
             .shadow_lg()

@@ -1,0 +1,10 @@
+# Rust build artifacts
+/target/
+
+# macOS Finder metadata
+.DS_Store
+**/.DS_Store
+
+# macOS app bundles / disk images
+*.app/
+*.dmg

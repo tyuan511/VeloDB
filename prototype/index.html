@@ -1,0 +1,2990 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VeloDB — PostgreSQL Workbench Prototype v0.2</title>
+  <style>
+    :root {
+      --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", sans-serif;
+      --font-mono: "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+      --grid-font-size: 12px;
+      --grid-cell-py: 6px;
+      --editor-font-size: 13px;
+      --radius-sm: 6px;
+      --radius-md: 9px;
+      --radius-lg: 12px;
+      --radius-xl: 16px;
+      --ease: 150ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    [data-theme="dark"] {
+      --desktop-bg: radial-gradient(circle at 18% 15%, #1c2a44 0%, #101521 48%, #080a0f 100%);
+      --window-bg: rgba(23, 26, 33, 0.88);
+      --sidebar-bg: rgba(28, 32, 42, 0.64);
+      --titlebar-bg: rgba(30, 34, 44, 0.76);
+      --panel-bg: rgba(22, 25, 32, 0.94);
+      --surface-1: rgba(255, 255, 255, 0.038);
+      --surface-2: rgba(255, 255, 255, 0.068);
+      --surface-3: rgba(255, 255, 255, 0.11);
+      --border: rgba(255, 255, 255, 0.085);
+      --border-strong: rgba(255, 255, 255, 0.16);
+      --text-1: #f3f5f8;
+      --text-2: #a3adbd;
+      --text-3: #6c7689;
+      --accent: #3b82f6;
+      --accent-soft: rgba(59, 130, 246, 0.16);
+      --green: #34d399;
+      --green-soft: rgba(52, 211, 153, 0.14);
+      --amber: #fbbf24;
+      --amber-soft: rgba(251, 191, 36, 0.15);
+      --red: #f87171;
+      --red-soft: rgba(248, 113, 113, 0.15);
+      --purple: #a78bfa;
+      --purple-soft: rgba(167, 139, 250, 0.15);
+      --cyan: #22d3ee;
+      --cyan-soft: rgba(34, 211, 238, 0.14);
+      --shadow-window: 0 32px 80px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255,255,255,0.1);
+      --shadow-float: 0 18px 48px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255,255,255,0.12);
+      --row-hover: rgba(255, 255, 255, 0.035);
+      --row-selected: rgba(59, 130, 246, 0.15);
+    }
+
+    [data-theme="light"] {
+      --desktop-bg: radial-gradient(circle at 20% 15%, #dbeafe 0%, #e8eef7 48%, #dde4f0 100%);
+      --window-bg: rgba(252, 253, 255, 0.91);
+      --sidebar-bg: rgba(241, 244, 249, 0.75);
+      --titlebar-bg: rgba(246, 248, 252, 0.84);
+      --panel-bg: rgba(255, 255, 255, 0.97);
+      --surface-1: rgba(15, 23, 42, 0.035);
+      --surface-2: rgba(15, 23, 42, 0.06);
+      --surface-3: rgba(15, 23, 42, 0.1);
+      --border: rgba(15, 23, 42, 0.09);
+      --border-strong: rgba(15, 23, 42, 0.16);
+      --text-1: #0f172a;
+      --text-2: #475569;
+      --text-3: #94a3b8;
+      --accent: #2563eb;
+      --accent-soft: rgba(37, 99, 235, 0.1);
+      --green: #059669;
+      --green-soft: rgba(5, 150, 105, 0.1);
+      --amber: #d97706;
+      --amber-soft: rgba(217, 119, 6, 0.12);
+      --red: #dc2626;
+      --red-soft: rgba(220, 38, 38, 0.1);
+      --purple: #7c3aed;
+      --purple-soft: rgba(124, 58, 237, 0.1);
+      --cyan: #0891b2;
+      --cyan-soft: rgba(8, 145, 178, 0.1);
+      --shadow-window: 0 28px 70px rgba(15, 23, 42, 0.16), 0 0 0 1px rgba(15,23,42,0.08);
+      --shadow-float: 0 18px 42px rgba(15, 23, 42, 0.14), 0 0 0 1px rgba(15,23,42,0.08);
+      --row-hover: rgba(15, 23, 42, 0.03);
+      --row-selected: rgba(37, 99, 235, 0.09);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%; width: 100%; overflow: hidden;
+      font-family: var(--font-sans);
+      background: var(--desktop-bg);
+      color: var(--text-1);
+      font-size: 13px;
+      -webkit-font-smoothing: antialiased;
+      user-select: none;
+    }
+
+    .desktop-stage {
+      height: 100vh; width: 100vw; padding: 12px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .app-window {
+      width: 100%; height: 100%; max-width: 1720px;
+      background: var(--window-bg);
+      backdrop-filter: blur(28px) saturate(160%);
+      -webkit-backdrop-filter: blur(28px) saturate(160%);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow-window);
+      display: flex; flex-direction: column; overflow: hidden; position: relative;
+    }
+
+    /* Titlebar */
+    .titlebar {
+      height: 44px; flex-shrink: 0;
+      background: var(--titlebar-bg);
+      border-bottom: 1px solid var(--border);
+      display: grid; grid-template-columns: 1fr auto 1fr;
+      align-items: center; padding: 0 12px; gap: 12px;
+    }
+    .titlebar-left { display: flex; align-items: center; gap: 8px; justify-self: start; min-width: 0; }
+    .titlebar-right { display: flex; align-items: center; gap: 4px; justify-self: end; }
+    .traffic-lights { display: flex; gap: 7px; margin-right: 4px; }
+    .tl { width: 12px; height: 12px; border-radius: 50%; border: 0.5px solid rgba(0,0,0,0.15); }
+    .tl.close { background: #ff5f57; } .tl.min { background: #febc2e; } .tl.max { background: #28c840; }
+
+    .tb-sep { width: 1px; height: 16px; background: var(--border-strong); margin: 0 4px; }
+
+    .conn-pill {
+      display: flex; align-items: center; gap: 7px;
+      height: 28px; padding: 0 9px; border-radius: var(--radius-sm);
+      background: var(--surface-1); border: 1px solid var(--border);
+      color: var(--text-1); cursor: pointer; transition: var(--ease);
+      font-size: 12px; font-weight: 500;
+    }
+    .conn-pill:hover { background: var(--surface-2); border-color: var(--border-strong); }
+    .env-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .env-dot.prod { background: var(--red); box-shadow: 0 0 6px var(--red); }
+    .env-dot.staging { background: var(--amber); box-shadow: 0 0 6px var(--amber); }
+    .env-dot.local { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .env-badge {
+      font-size: 9.5px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.04em; padding: 1px 5px; border-radius: 4px;
+    }
+    .env-badge.prod { background: var(--red-soft); color: var(--red); }
+    .env-badge.staging { background: var(--amber-soft); color: var(--amber); }
+    .env-badge.local { background: var(--green-soft); color: var(--green); }
+
+    .cmd-trigger {
+      display: flex; align-items: center; gap: 8px;
+      width: 440px; max-width: 44vw; height: 28px; padding: 0 12px;
+      border-radius: var(--radius-sm); background: var(--surface-1);
+      border: 1px solid var(--border); color: var(--text-3);
+      cursor: pointer; transition: var(--ease); font-size: 12px;
+    }
+    .cmd-trigger:hover { background: var(--surface-2); color: var(--text-2); border-color: var(--border-strong); }
+    .cmd-trigger .label { flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .kbd {
+      font-family: var(--font-mono); font-size: 10.5px;
+      padding: 1px 5px; border-radius: 4px;
+      background: var(--surface-2); border: 1px solid var(--border); color: var(--text-2);
+    }
+
+    .icon-btn {
+      height: 28px; min-width: 28px; padding: 0 7px; border-radius: var(--radius-sm);
+      border: 1px solid transparent; background: transparent;
+      color: var(--text-2); display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+      cursor: pointer; font-size: 12px; font-weight: 500; transition: var(--ease);
+    }
+    .icon-btn:hover { background: var(--surface-2); color: var(--text-1); }
+    .icon-btn.active { background: var(--accent-soft); color: var(--accent); }
+
+    /* Workspace */
+    .workspace { flex: 1; display: flex; min-height: 0; position: relative; }
+
+    /* Sidebar */
+    .sidebar {
+      width: 256px; flex-shrink: 0;
+      background: var(--sidebar-bg);
+      backdrop-filter: blur(24px);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; min-height: 0;
+    }
+    .sidebar-top {
+      padding: 10px; display: flex; flex-direction: column; gap: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .schema-row { display: flex; gap: 6px; }
+    .schema-select {
+      flex: 1; padding: 6px 8px; border-radius: var(--radius-sm);
+      background: var(--surface-2); border: 1px solid var(--border);
+      color: var(--text-1); font-size: 12px; font-weight: 500; outline: none; cursor: pointer;
+    }
+    .search-box { position: relative; display: flex; align-items: center; }
+    .search-box svg { position: absolute; left: 9px; color: var(--text-3); pointer-events: none; }
+    .search-box input {
+      width: 100%; padding: 6px 10px 6px 28px; border-radius: var(--radius-sm);
+      background: var(--surface-1); border: 1px solid var(--border);
+      color: var(--text-1); font-size: 12px; outline: none; transition: var(--ease);
+    }
+    .search-box input:focus { background: var(--surface-2); border-color: var(--accent); }
+
+    .sidebar-tree { flex: 1; overflow-y: auto; padding: 6px; }
+    .tree-group { margin-bottom: 4px; }
+    .tree-group-title {
+      font-size: 10.5px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.05em; color: var(--text-3);
+      padding: 7px 8px 4px; display: flex; justify-content: space-between;
+      cursor: pointer; border-radius: 4px;
+    }
+    .tree-group-title:hover { color: var(--text-2); background: var(--surface-1); }
+    .tree-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 5.5px 8px; border-radius: var(--radius-sm);
+      cursor: pointer; color: var(--text-2); transition: var(--ease); font-size: 12.5px;
+    }
+    .tree-item:hover { background: var(--surface-2); color: var(--text-1); }
+    .tree-item.active { background: var(--accent-soft); color: var(--accent); font-weight: 500; }
+    .tree-item .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tree-item .meta { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-3); }
+
+    .sidebar-footer {
+      padding: 8px 10px; border-top: 1px solid var(--border);
+      display: flex; gap: 6px;
+    }
+
+    /* Main Pane */
+    .main-pane { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; position: relative; }
+
+    .tabbar {
+      height: 38px; flex-shrink: 0; display: flex; align-items: center; gap: 4px;
+      padding: 0 10px; border-bottom: 1px solid var(--border);
+      background: var(--surface-1); overflow-x: auto;
+    }
+    .tab {
+      height: 28px; padding: 0 10px; border-radius: var(--radius-sm);
+      display: inline-flex; align-items: center; gap: 7px; font-size: 12px;
+      color: var(--text-2); cursor: pointer; border: 1px solid transparent;
+      transition: var(--ease); white-space: nowrap;
+    }
+    .tab:hover { background: var(--surface-2); color: var(--text-1); }
+    .tab.active {
+      background: var(--panel-bg); color: var(--text-1);
+      border-color: var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.12); font-weight: 500;
+    }
+    .tab .close-tab { opacity: 0.45; font-size: 14px; line-height: 1; padding: 1px 3px; border-radius: 4px; }
+    .tab .close-tab:hover { opacity: 1; background: var(--surface-3); }
+    .new-tab-btn {
+      width: 26px; height: 26px; border-radius: var(--radius-sm); border: none;
+      background: transparent; color: var(--text-2); cursor: pointer; font-size: 16px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .new-tab-btn:hover { background: var(--surface-2); color: var(--text-1); }
+
+    .subtoolbar {
+      padding: 7px 12px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      background: var(--surface-1);
+    }
+    .segmented {
+      display: inline-flex; padding: 2px; border-radius: var(--radius-sm);
+      background: var(--surface-2); border: 1px solid var(--border);
+    }
+    .seg-btn {
+      padding: 4px 10px; border-radius: 4px; border: none; background: transparent;
+      color: var(--text-2); font-size: 11.5px; font-weight: 500; cursor: pointer; transition: var(--ease);
+    }
+    .seg-btn.active { background: var(--panel-bg); color: var(--text-1); box-shadow: 0 1px 2px rgba(0,0,0,0.15); }
+
+    .where-bar {
+      flex: 1; min-width: 200px; display: flex; align-items: center;
+      background: var(--panel-bg); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 0 8px; height: 28px; gap: 6px;
+    }
+    .where-bar:focus-within { border-color: var(--accent); }
+    .where-prefix { font-family: var(--font-mono); font-size: 11px; font-weight: 600; color: var(--purple); }
+    .where-bar input {
+      flex: 1; border: none; background: transparent; color: var(--text-1);
+      font-family: var(--font-mono); font-size: 12px; outline: none;
+    }
+
+    .btn {
+      height: 28px; padding: 0 10px; border-radius: var(--radius-sm);
+      border: 1px solid var(--border); background: var(--surface-2);
+      color: var(--text-1); font-size: 12px; font-weight: 500; cursor: pointer;
+      display: inline-flex; align-items: center; gap: 5px; transition: var(--ease);
+      white-space: nowrap;
+    }
+    .btn:hover { background: var(--surface-3); border-color: var(--border-strong); }
+    .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .btn.primary:hover { filter: brightness(1.08); }
+    .btn.success { background: var(--green); border-color: var(--green); color: #06281e; font-weight: 600; }
+    .btn.danger { background: var(--red-soft); border-color: rgba(248,113,113,0.3); color: var(--red); }
+
+    /* Data Grid */
+    .grid-wrap { flex: 1; overflow: auto; position: relative; }
+    table.data-grid { width: 100%; border-collapse: collapse; font-size: 12.5px; table-layout: fixed; }
+    table.data-grid thead th {
+      position: sticky; top: 0; z-index: 2;
+      background: var(--titlebar-bg); backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-strong); border-right: 1px solid var(--border);
+      padding: 7px 10px; text-align: left; font-weight: 600; color: var(--text-1);
+      white-space: nowrap; cursor: pointer;
+    }
+    table.data-grid thead th:hover { background: var(--surface-2); }
+    .th-inner { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+    .col-type {
+      font-family: var(--font-mono); font-size: 10px; font-weight: 500;
+      color: var(--text-3); background: var(--surface-2); padding: 1px 5px; border-radius: 4px;
+    }
+    .pk-tag { color: var(--amber); font-size: 10px; margin-right: 3px; }
+    .fk-tag { color: var(--cyan); font-size: 10px; margin-right: 3px; }
+
+    table.data-grid tbody tr { border-bottom: 1px solid var(--border); transition: background 90ms; }
+    table.data-grid tbody tr:hover { background: var(--row-hover); }
+    table.data-grid tbody tr.selected { background: var(--row-selected); }
+    table.data-grid tbody tr.row-added { background: var(--green-soft); }
+    table.data-grid tbody tr.row-deleted { background: var(--red-soft); opacity: 0.7; text-decoration: line-through; }
+
+    table.data-grid tbody td {
+      border-right: 1px solid var(--border); padding: var(--grid-cell-py) 10px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      font-family: var(--font-mono); font-size: var(--grid-font-size); color: var(--text-1);
+      position: relative; cursor: cell;
+    }
+    table.data-grid tbody td.row-num {
+      width: 44px; text-align: center; color: var(--text-3);
+      background: var(--surface-1); cursor: pointer;
+    }
+    table.data-grid tbody td.cell-dirty {
+      background: var(--amber-soft); box-shadow: inset 0 0 0 1px var(--amber);
+    }
+    table.data-grid tbody td.cell-dirty::after {
+      content: ""; position: absolute; top: 0; left: 0;
+      border-top: 6px solid var(--amber); border-right: 6px solid transparent;
+    }
+    table.data-grid tbody td.cell-selected { box-shadow: inset 0 0 0 1.5px var(--accent); }
+
+    .cell-null { color: var(--text-3); font-style: italic; }
+    .cell-json {
+      display: inline-block; padding: 1px 6px; border-radius: 4px;
+      background: var(--purple-soft); color: var(--purple); font-size: 11px;
+    }
+    .fk-jump {
+      display: inline-flex; align-items: center; gap: 4px;
+      color: var(--cyan); cursor: pointer; text-decoration: underline dotted;
+    }
+    .fk-jump:hover { opacity: 0.8; }
+    .badge-enum {
+      display: inline-flex; align-items: center; gap: 4px; padding: 1px 7px;
+      border-radius: 99px; font-family: var(--font-sans); font-size: 11px; font-weight: 500;
+    }
+    .badge-enum.active, .badge-enum.paid { background: var(--green-soft); color: var(--green); }
+    .badge-enum.pending, .badge-enum.idle { background: var(--amber-soft); color: var(--amber); }
+    .badge-enum.suspended, .badge-enum.failed, .badge-enum.waiting { background: var(--red-soft); color: var(--red); }
+
+    .cell-editing { padding: 0 !important; overflow: visible !important; }
+    .cell-editor-wrap {
+      display: flex; align-items: center; width: 100%; height: 100%;
+      background: var(--panel-bg); box-shadow: inset 0 0 0 1.5px var(--accent);
+    }
+    .cell-input, .cell-select {
+      flex: 1; min-width: 0; width: 100%; height: 100%;
+      background: transparent; color: var(--text-1); border: none;
+      padding: var(--grid-cell-py) 8px; font-family: var(--font-mono);
+      font-size: var(--grid-font-size); outline: none;
+    }
+    .cell-null-btn {
+      flex-shrink: 0; margin-right: 4px; padding: 1px 5px; border-radius: 3px;
+      border: 1px solid var(--border); background: var(--surface-2);
+      color: var(--text-3); font-family: var(--font-mono); font-size: 9.5px;
+      cursor: pointer; transition: var(--ease);
+    }
+    .cell-null-btn:hover { background: var(--red-soft); color: var(--red); border-color: transparent; }
+
+    .row-num .rn-chk { display: none; cursor: pointer; accent-color: var(--accent); }
+    table.data-grid tbody tr:hover .row-num .rn-txt,
+    table.data-grid tbody tr.row-checked .row-num .rn-txt { display: none; }
+    table.data-grid tbody tr:hover .row-num .rn-chk,
+    table.data-grid tbody tr.row-checked .row-num .rn-chk { display: inline-block; }
+    table.data-grid tbody tr.row-checked { background: var(--accent-soft); }
+
+    /* Pagination Bar */
+    .grid-footer {
+      height: 34px; flex-shrink: 0; border-top: 1px solid var(--border);
+      background: var(--surface-1); padding: 0 12px;
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 11.5px; color: var(--text-2);
+    }
+
+    /* Staged Changes Floating Bar */
+    .staged-bar {
+      position: absolute; bottom: 44px; left: 50%;
+      transform: translateX(-50%) translateY(16px);
+      background: var(--panel-bg); backdrop-filter: blur(20px);
+      border: 1px solid var(--border-strong); box-shadow: var(--shadow-float);
+      border-radius: var(--radius-lg); padding: 8px 12px;
+      display: flex; align-items: center; gap: 10px; z-index: 20;
+      opacity: 0; pointer-events: none; transition: var(--ease);
+    }
+    .staged-bar.visible { opacity: 1; pointer-events: auto; transform: translateX(-50%) translateY(0); }
+    .staged-count { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--amber); }
+
+    /* Structure & Monitor & SQL */
+    .sql-workspace { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+    .sql-editor-pane { height: 44%; min-height: 160px; display: flex; border-bottom: 1px solid var(--border); background: var(--panel-bg); }
+    .sql-gutter {
+      width: 42px; padding: 14px 10px 14px 4px; text-align: right;
+      font-family: var(--font-mono); font-size: var(--editor-font-size); line-height: 1.65;
+      color: var(--text-3); background: var(--surface-1); border-right: 1px solid var(--border);
+      user-select: none; overflow: hidden; flex-shrink: 0;
+    }
+    .sql-editor-wrap {
+      flex: 1; position: relative; min-width: 0; overflow: hidden;
+    }
+    .sql-highlight, .sql-textarea {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      padding: 14px 16px; margin: 0; border: none;
+      font-family: var(--font-mono); font-size: var(--editor-font-size);
+      font-weight: 400; font-variant-ligatures: none; letter-spacing: 0;
+      line-height: 1.65; tab-size: 2; white-space: pre; overflow: auto;
+      box-sizing: border-box;
+    }
+    .sql-highlight {
+      z-index: 1; pointer-events: none; color: var(--text-1); background: transparent;
+    }
+    .sql-textarea {
+      z-index: 2; background: transparent;
+      color: transparent; -webkit-text-fill-color: transparent;
+      caret-color: var(--text-1); resize: none; outline: none;
+    }
+    .sql-textarea::selection { background: var(--accent-soft); -webkit-text-fill-color: transparent; }
+    [data-theme="light"] .sql-kw  { color: #7c3aed; }
+    [data-theme="light"] .sql-fn  { color: #1d4ed8; }
+    [data-theme="light"] .sql-str { color: #047857; }
+    [data-theme="light"] .sql-num { color: #b45309; }
+    [data-theme="light"] .sql-cmt { color: #64748b; font-style: italic; }
+    [data-theme="dark"] .sql-kw   { color: #c084fc; }
+    [data-theme="dark"] .sql-fn   { color: #60a5fa; }
+    [data-theme="dark"] .sql-str  { color: #34d399; }
+    [data-theme="dark"] .sql-num  { color: #fbbf24; }
+    [data-theme="dark"] .sql-cmt  { color: #6c7689; font-style: italic; }
+
+    /* macOS Native Accent Color Picker */
+    .color-picker-bar {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      padding: 8px 12px; border-radius: var(--radius-md);
+      background: var(--surface-1); border: 1px solid var(--border);
+    }
+    .color-swatches { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .swatch {
+      width: 20px; height: 20px; border-radius: 50%; cursor: pointer;
+      position: relative; transition: transform 140ms ease, box-shadow 140ms ease;
+      box-shadow: inset 0 1px 1px rgba(255,255,255,0.35), 0 1px 2px rgba(0,0,0,0.14);
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .swatch:hover { transform: scale(1.12); }
+    .swatch.active {
+      box-shadow: 0 0 0 2px var(--panel-bg), 0 0 0 3.5px var(--swatch-c, var(--accent));
+    }
+    .swatch.active::after {
+      content: ""; width: 6px; height: 6px; border-radius: 50%;
+      background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+    }
+    .custom-color-pill {
+      position: relative; display: inline-flex; align-items: center; gap: 6px;
+      height: 26px; padding: 0 9px; border-radius: var(--radius-sm);
+      background: var(--panel-bg); border: 1px solid var(--border);
+      font-family: var(--font-mono); font-size: 11px; color: var(--text-2);
+      cursor: pointer; transition: var(--ease);
+    }
+    .custom-color-pill:hover { border-color: var(--border-strong); color: var(--text-1); }
+    .custom-color-pill input[type="color"] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+    }
+    .custom-color-dot {
+      width: 12px; height: 12px; border-radius: 50%;
+      border: 1px solid rgba(0,0,0,0.12);
+    }
+
+    /* Step 1: Database Driver Picker Grid */
+    .db-driver-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+    }
+    .db-driver-card {
+      padding: 16px 12px; border-radius: var(--radius-md);
+      background: var(--surface-1); border: 1px solid var(--border);
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+      cursor: pointer; transition: var(--ease); text-align: center;
+    }
+    .db-driver-card:hover {
+      border-color: var(--accent); background: var(--panel-bg);
+      transform: translateY(-2px); box-shadow: 0 8px 20px rgba(15,23,42,0.08);
+    }
+    .db-driver-logo {
+      width: 42px; height: 42px; border-radius: 11px;
+      background: var(--panel-bg); border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    }
+    .db-driver-name { font-size: 13px; font-weight: 600; color: var(--text-1); }
+    .db-driver-sub { font-size: 10.5px; color: var(--text-3); font-family: var(--font-mono); margin-top: -6px; }
+    .ssh-box {
+      border-radius: var(--radius-md); background: var(--surface-1);
+      border: 1px solid var(--border); overflow: hidden; flex-shrink: 0;
+    }
+    .ssh-hdr {
+      padding: 10px 12px; display: flex; justify-content: space-between; align-items: center;
+    }
+    .ssh-fields {
+      padding: 10px 12px 12px; border-top: 1px solid var(--border);
+      display: flex; flex-direction: column; gap: 10px;
+    }
+
+    .sql-results-pane { flex: 1; display: flex; flex-direction: column; min-height: 0; background: var(--surface-1); }
+
+    /* Compact EXPLAIN ANALYZE */
+    .explain-container { padding: 10px 14px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 8px; }
+    .exp-summary {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      padding: 6px 10px; border-radius: var(--radius-sm);
+      background: var(--panel-bg); border: 1px solid var(--border);
+      font-size: 11.5px; color: var(--text-2); font-family: var(--font-mono);
+    }
+    .exp-table {
+      width: 100%; border-collapse: collapse; background: var(--panel-bg);
+      border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden;
+      font-size: 12px;
+    }
+    .exp-table th {
+      text-align: left; padding: 6px 10px; font-size: 10.5px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-3);
+      background: var(--surface-1); border-bottom: 1px solid var(--border);
+    }
+    .exp-table td {
+      padding: 7px 10px; border-bottom: 1px solid var(--border);
+      font-family: var(--font-mono); color: var(--text-1); vertical-align: middle;
+    }
+    .exp-table tr:last-child td { border-bottom: none; }
+    .exp-table tr.exp-warn { background: var(--amber-soft); }
+    .exp-bar-mini {
+      display: inline-block; width: 48px; height: 4px; border-radius: 99px;
+      background: var(--surface-2); overflow: hidden; vertical-align: middle; margin-right: 6px;
+    }
+    .exp-bar-mini > i { display: block; height: 100%; background: var(--accent); border-radius: 99px; }
+    .exp-warn .exp-bar-mini > i { background: var(--amber); }
+
+    /* Snippets Dropdown */
+    .dropdown-wrap { position: relative; display: inline-flex; }
+    .snippets-menu {
+      position: absolute; top: calc(100% + 6px); right: 0; width: 270px; z-index: 60;
+      background: var(--panel-bg); backdrop-filter: blur(24px);
+      border: 1px solid var(--border-strong); border-radius: var(--radius-md);
+      box-shadow: var(--shadow-float); padding: 5px; display: none;
+    }
+    .snippets-menu.open { display: block; }
+    .snip-item {
+      padding: 7px 9px; border-radius: 5px; cursor: pointer;
+      display: flex; flex-direction: column; gap: 2px; transition: var(--ease);
+    }
+    .snip-item:hover { background: var(--accent-soft); }
+    .snip-name { font-size: 12px; font-weight: 500; color: var(--text-1); display: flex; justify-content: space-between; }
+    .snip-preview { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .explain-node {
+      background: var(--panel-bg); border: 1px solid var(--border);
+      border-radius: var(--radius-md); padding: 9px 12px; display: flex; flex-direction: column; gap: 4px;
+    }
+    .explain-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+
+    /* Monitor Cards */
+    .monitor-wrap { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+    .metric-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    .metric-card {
+      background: var(--panel-bg); border: 1px solid var(--border);
+      border-radius: var(--radius-md); padding: 14px; display: flex; flex-direction: column; gap: 6px;
+    }
+    .metric-label { font-size: 11px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.04em; }
+    .metric-val { font-size: 22px; font-weight: 700; font-family: var(--font-mono); }
+    .metric-sub { font-size: 11.5px; color: var(--text-2); }
+
+    /* Right Drawer */
+    .right-drawer {
+      width: 336px; flex-shrink: 0; background: var(--sidebar-bg);
+      backdrop-filter: blur(24px); border-left: 1px solid var(--border);
+      display: flex; flex-direction: column; min-height: 0;
+    }
+    .right-drawer.hidden { display: none; }
+    .drawer-header {
+      padding: 9px 12px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .drawer-body { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 12px; }
+
+    .json-editor {
+      width: 100%; min-height: 220px; padding: 10px; border-radius: var(--radius-md);
+      background: var(--panel-bg); border: 1px solid var(--border);
+      color: var(--text-1); font-family: var(--font-mono); font-size: 12px;
+      line-height: 1.5; resize: vertical; outline: none;
+    }
+    .json-editor:focus { border-color: var(--accent); }
+
+    .row-form-field { display: flex; flex-direction: column; gap: 4px; }
+    .row-form-field label {
+      font-size: 11px; color: var(--text-2); display: flex; justify-content: space-between;
+      font-family: var(--font-mono);
+    }
+    .row-form-field input {
+      padding: 6px 9px; border-radius: var(--radius-sm);
+      background: var(--panel-bg); border: 1px solid var(--border);
+      color: var(--text-1); font-family: var(--font-mono); font-size: 12px; outline: none;
+    }
+    .row-form-field input:focus { border-color: var(--accent); }
+
+    /* Context Menu */
+    .ctx-menu {
+      position: fixed; z-index: 300; min-width: 190px;
+      background: var(--panel-bg); backdrop-filter: blur(24px);
+      border: 1px solid var(--border-strong); border-radius: var(--radius-md);
+      box-shadow: var(--shadow-float); padding: 5px; display: none;
+    }
+    .ctx-menu.open { display: block; }
+    .ctx-item {
+      padding: 6px 10px; border-radius: 5px; font-size: 12px;
+      color: var(--text-1); cursor: pointer; display: flex; justify-content: space-between;
+    }
+    .ctx-item:hover { background: var(--accent); color: #fff; }
+    .ctx-sep { height: 1px; background: var(--border); margin: 4px 0; }
+
+    /* Statusbar */
+    .statusbar {
+      height: 26px; flex-shrink: 0; background: var(--titlebar-bg);
+      border-top: 1px solid var(--border); padding: 0 10px;
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 11px; color: var(--text-3);
+    }
+    .status-group { display: flex; align-items: center; gap: 4px; }
+    .status-item {
+      display: inline-flex; align-items: center; gap: 5px;
+      height: 20px; padding: 0 6px; border-radius: 4px;
+      color: var(--text-2); font-family: var(--font-sans);
+    }
+    .status-btn {
+      display: inline-flex; align-items: center; gap: 5px;
+      height: 20px; padding: 0 7px; border-radius: 4px;
+      border: none; background: transparent; color: var(--text-2);
+      font-size: 11px; font-weight: 500; cursor: pointer; transition: var(--ease);
+    }
+    .status-btn:hover { background: var(--surface-2); color: var(--text-1); }
+    .status-btn.safe-on { color: var(--green); }
+    .status-btn.mcp-on { color: var(--cyan); }
+    .status-sep { width: 1px; height: 11px; background: var(--border-strong); margin: 0 2px; }
+
+    /* Modals */
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0, 0, 0, 0.48);
+      backdrop-filter: blur(4px); display: none; align-items: flex-start;
+      justify-content: center; padding-top: 9vh; z-index: 100;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal-card {
+      width: 580px; max-width: 92vw; background: var(--panel-bg);
+      backdrop-filter: blur(28px); border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-float); overflow: hidden;
+      animation: popIn 140ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    @keyframes popIn { from { opacity: 0; transform: scale(0.97) translateY(-6px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+    .cmd-input {
+      width: 100%; padding: 14px 16px; border: none; border-bottom: 1px solid var(--border);
+      background: transparent; color: var(--text-1); font-size: 14px; outline: none;
+    }
+    .cmd-list { max-height: 340px; overflow-y: auto; padding: 6px; }
+    .cmd-item {
+      padding: 8px 12px; border-radius: var(--radius-sm);
+      display: flex; align-items: center; justify-content: space-between;
+      cursor: pointer; color: var(--text-2); font-size: 12.5px;
+    }
+    .cmd-item:hover, .cmd-item.selected { background: var(--accent-soft); color: var(--text-1); }
+
+    .modal-header {
+      padding: 13px 16px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      font-weight: 600; font-size: 13.5px;
+    }
+    .modal-body { padding: 16px; display: flex; flex-direction: column; gap: 12px; max-height: 76vh; overflow-y: auto; }
+    .modal-body > * { flex-shrink: 0; }
+    .modal-footer {
+      padding: 12px 16px; border-top: 1px solid var(--border);
+      display: flex; justify-content: flex-end; gap: 8px; background: var(--surface-1);
+    }
+    .code-block {
+      padding: 10px 12px; border-radius: var(--radius-sm);
+      background: var(--surface-1); border: 1px solid var(--border);
+      font-family: var(--font-mono); font-size: 11.5px; line-height: 1.55;
+      white-space: pre-wrap; color: var(--text-1); overflow: auto;
+    }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .field { display: flex; flex-direction: column; gap: 4px; }
+    .field label { font-size: 11px; color: var(--text-2); font-weight: 500; }
+    .field input, .field select {
+      padding: 7px 10px; border-radius: var(--radius-sm);
+      background: var(--surface-1); border: 1px solid var(--border);
+      color: var(--text-1); font-size: 12px; outline: none;
+    }
+    .field input:focus, .field select:focus { border-color: var(--accent); }
+
+    .toast {
+      position: fixed; bottom: 46px; right: 26px;
+      background: var(--panel-bg); border: 1px solid var(--border-strong);
+      box-shadow: var(--shadow-float); padding: 9px 14px;
+      border-radius: var(--radius-md); font-size: 12px; font-weight: 500;
+      z-index: 250; opacity: 0; transform: translateY(8px);
+      transition: var(--ease); pointer-events: none;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    /* Settings Modal (macOS Vibrant Style) */
+    .settings-card {
+      width: 780px; max-width: 94vw; height: 560px; max-height: 82vh;
+      background: var(--panel-bg); backdrop-filter: blur(32px) saturate(160%);
+      border-radius: var(--radius-xl); box-shadow: var(--shadow-float);
+      display: flex; overflow: hidden;
+      animation: popIn 140ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .settings-nav {
+      width: 210px; flex-shrink: 0; background: var(--sidebar-bg);
+      border-right: 1px solid var(--border); padding: 14px 10px;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .settings-nav-title {
+      font-size: 11px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.06em; color: var(--text-3); padding: 4px 10px 8px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .settings-nav-item {
+      display: flex; align-items: center; gap: 9px;
+      padding: 7.5px 10px; border-radius: var(--radius-sm);
+      font-size: 12.5px; color: var(--text-2); cursor: pointer;
+      transition: var(--ease); border: none; background: transparent; text-align: left;
+    }
+    .settings-nav-item:hover { background: var(--surface-2); color: var(--text-1); }
+    .settings-nav-item.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+    .settings-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+    .settings-header {
+      padding: 14px 20px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .settings-content {
+      flex: 1; overflow-y: auto; padding: 18px 20px;
+      display: flex; flex-direction: column; gap: 14px;
+    }
+    .setting-group {
+      background: var(--surface-1); border: 1px solid var(--border);
+      border-radius: var(--radius-md); overflow: hidden;
+    }
+    .setting-row {
+      padding: 11px 14px; display: flex; align-items: center;
+      justify-content: space-between; gap: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .setting-row:last-child { border-bottom: none; }
+    .setting-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .setting-label { font-size: 12.5px; font-weight: 500; color: var(--text-1); }
+    .setting-desc { font-size: 11px; color: var(--text-3); line-height: 1.4; }
+    .setting-ctrl select, .setting-ctrl input[type="text"], .setting-ctrl input[type="number"] {
+      padding: 5px 9px; border-radius: var(--radius-sm);
+      background: var(--panel-bg); border: 1px solid var(--border);
+      color: var(--text-1); font-size: 12px; outline: none; min-width: 140px;
+    }
+    .setting-ctrl select:focus, .setting-ctrl input:focus { border-color: var(--accent); }
+
+    /* macOS Toggle Switch */
+    .switch { position: relative; display: inline-block; width: 34px; height: 19px; flex-shrink: 0; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute; cursor: pointer; inset: 0;
+      background: var(--surface-3); border-radius: 99px; transition: var(--ease);
+    }
+    .slider:before {
+      position: absolute; content: ""; height: 15px; width: 15px;
+      left: 2px; bottom: 2px; background: #fff; border-radius: 50%;
+      transition: var(--ease); box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+    .switch input:checked + .slider { background: var(--accent); }
+    .switch input:checked + .slider:before { transform: translateX(15px); }
+
+    .no-vibrancy .app-window, .no-vibrancy .sidebar, .no-vibrancy .right-drawer, .no-vibrancy .settings-card {
+      backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+    }
+    [data-theme="dark"].no-vibrancy { --window-bg: #171a21; --sidebar-bg: #1c202a; --panel-bg: #161920; }
+    [data-theme="light"].no-vibrancy { --window-bg: #fcfdff; --sidebar-bg: #f1f4f9; --panel-bg: #ffffff; }
+
+    /* Hugeicons SVG & macOS System Settings Squircle Menu Icons */
+    .hgi {
+      display: inline-block;
+      vertical-align: middle;
+      flex-shrink: 0;
+    }
+    .macos-icon {
+      width: 22px; height: 22px;
+      border-radius: 6px;
+      display: inline-flex; align-items: center; justify-content: center;
+      flex-shrink: 0; color: #fff;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.28), 0 1px 2px rgba(0,0,0,0.24);
+    }
+    .macos-icon .hgi { width: 13px; height: 13px; stroke-width: 2; }
+    .mi-blue   { background: linear-gradient(180deg, #4da3ff 0%, #0a7aff 100%); }
+    .mi-indigo { background: linear-gradient(180deg, #7c83ff 0%, #5856d6 100%); }
+    .mi-purple { background: linear-gradient(180deg, #c084fc 0%, #9333ea 100%); }
+    .mi-green  { background: linear-gradient(180deg, #4ade80 0%, #16a34a 100%); }
+    .mi-orange { background: linear-gradient(180deg, #fb923c 0%, #ea580c 100%); }
+    .mi-teal   { background: linear-gradient(180deg, #2dd4bf 0%, #0d9488 100%); }
+    .mi-gray   { background: linear-gradient(180deg, #94a3b8 0%, #475569 100%); }
+
+    /* Empty / Welcome State (No Connections) */
+    .empty-stage {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      padding: 32px; position: relative;
+      background: radial-gradient(circle at 50% 30%, var(--accent-soft), transparent 62%);
+    }
+    .empty-card {
+      width: 520px; max-width: 100%;
+      display: flex; flex-direction: column; align-items: center; text-align: center;
+      gap: 20px;
+    }
+    .empty-app-icon {
+      width: 58px; height: 58px; border-radius: 15px;
+      background: linear-gradient(180deg, #4da3ff 0%, #2563eb 100%);
+      display: flex; align-items: center; justify-content: center; color: #fff;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), 0 12px 28px rgba(37, 99, 235, 0.28);
+    }
+    .empty-title { font-size: 20px; font-weight: 600; letter-spacing: -0.02em; color: var(--text-1); }
+    .empty-sub { font-size: 13px; color: var(--text-2); max-width: 380px; line-height: 1.55; margin-top: -10px; }
+    .empty-uri-box {
+      width: 100%; display: flex; align-items: center; gap: 8px;
+      padding: 6px 6px 6px 12px; border-radius: var(--radius-md);
+      background: var(--panel-bg); border: 1px solid var(--border-strong);
+      box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
+    }
+    .empty-uri-box:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+    .empty-uri-box input {
+      flex: 1; border: none; background: transparent; color: var(--text-1);
+      font-family: var(--font-mono); font-size: 12px; outline: none;
+    }
+    .empty-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+    .empty-quick-grid {
+      width: 100%; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+      margin-top: 6px;
+    }
+    .empty-mini-card {
+      padding: 12px; border-radius: var(--radius-md);
+      background: var(--panel-bg); border: 1px solid var(--border);
+      text-align: left; cursor: pointer; transition: var(--ease);
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .empty-mini-card:hover { border-color: var(--border-strong); background: var(--surface-1); transform: translateY(-1px); }
+    .empty-mini-title { font-size: 12px; font-weight: 600; color: var(--text-1); display: flex; align-items: center; gap: 6px; }
+    .empty-mini-desc { font-size: 11px; color: var(--text-3); line-height: 1.4; }
+
+    /* Saved Connections Launcher List */
+    .launcher-list {
+      width: 100%; display: flex; flex-direction: column; gap: 8px; text-align: left;
+    }
+    .launcher-list-hdr {
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
+      color: var(--text-3); padding: 0 2px;
+    }
+    .conn-card {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 14px; border-radius: var(--radius-md);
+      background: var(--panel-bg); border: 1px solid var(--border);
+      cursor: pointer; transition: var(--ease);
+    }
+    .conn-card:hover { border-color: var(--accent); background: var(--surface-1); transform: translateY(-1px); box-shadow: 0 6px 18px rgba(15,23,42,0.06); }
+    .conn-card-icon {
+      width: 34px; height: 34px; border-radius: 9px;
+      background: var(--surface-2); display: flex; align-items: center; justify-content: center;
+      color: var(--text-2); flex-shrink: 0;
+    }
+    .conn-card-info { flex: 1; min-width: 0; }
+    .conn-card-name { font-size: 13px; font-weight: 600; color: var(--text-1); display: flex; align-items: center; gap: 8px; }
+    .conn-card-host { font-size: 11.5px; color: var(--text-3); font-family: var(--font-mono); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .hidden { display: none !important; }
+    ::-webkit-scrollbar { width: 7px; height: 7px; }
+    ::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 99px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+  </style>
+</head>
+<body>
+<div class="desktop-stage">
+  <div class="app-window">
+    <!-- Titlebar -->
+    <header class="titlebar">
+      <div class="titlebar-left">
+        <div class="traffic-lights">
+          <div class="tl close"></div><div class="tl min"></div><div class="tl max"></div>
+        </div>
+        <button class="icon-btn active" id="toggleSidebarBtn" title="切换左侧栏">
+          <i data-hgi="sidebar-left" data-size="15"></i>
+        </button>
+        <button class="conn-pill" id="connPillBtn" title="切换或新建数据库连接">
+          <span class="env-dot prod" id="envDot"></span>
+          <span id="connName">velodb_prod_us_east</span>
+          <span class="env-badge prod" id="envBadge">PROD</span>
+          <i data-hgi="arrow-down" data-size="12" style="color:var(--text-3)"></i>
+        </button>
+      </div>
+
+      <button class="cmd-trigger" id="openCmdBtn">
+        <i data-hgi="search" data-size="13"></i>
+        <span class="label">搜索表、命令或切换连接...</span>
+        <span class="kbd">⌘K</span>
+      </button>
+
+      <div class="titlebar-right">
+        <button class="icon-btn" id="openMonitorBtn" title="实时监控 (pg_stat_activity)">
+          <i data-hgi="activity" data-size="15"></i>
+        </button>
+        <button class="icon-btn active" id="toggleInspectorBtn" title="切换右侧检视器">
+          <i data-hgi="sidebar-right" data-size="15"></i>
+        </button>
+        <div class="tb-sep"></div>
+        <button class="icon-btn" id="openSettingsBtn" title="偏好设置 (⌘,)">
+          <i data-hgi="settings" data-size="15"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- Launcher / Empty State (Disconnected by Default) -->
+    <section class="empty-stage" id="emptyStateView">
+      <div class="empty-card">
+        <div class="empty-app-icon">
+          <i data-hgi="database" data-size="28"></i>
+        </div>
+        <div class="empty-title" id="launcherTitle">VeloDB</div>
+        <div class="empty-sub" id="launcherSub">选择一个已保存的 PostgreSQL 连接，或新建连接开始工作。</div>
+
+        <div class="empty-uri-box">
+          <i data-hgi="link-up" data-size="14" style="color:var(--text-3)"></i>
+          <input type="text" id="quickUriInput" placeholder="postgresql://postgres@localhost:5432/postgres" />
+          <button class="btn primary" id="quickUriConnectBtn">直连</button>
+        </div>
+
+        <!-- Primary CTA Row (Prominent New Connection Button) -->
+        <div class="empty-actions" style="width:100%; justify-content:space-between; align-items:center;" id="launcherPrimaryBar">
+          <button class="btn primary" style="height:36px; padding:0 18px; font-size:13px; border-radius:var(--radius-md); flex:1; justify-content:center;" onclick="openNewConnModal()">
+            <i data-hgi="plus" data-size="15"></i> 新建数据库连接
+          </button>
+          <button class="btn" style="height:36px; padding:0 14px; font-size:12.5px; border-radius:var(--radius-md);" onclick="showToast('已扫描 ~/.pgpass 与 TablePlus 配置')">
+            <i data-hgi="upload" data-size="14"></i> 导入连接
+          </button>
+        </div>
+
+        <!-- Saved Connections List (shown when CONNECTIONS.length > 0) -->
+        <div class="launcher-list" id="launcherConnSection">
+          <div class="launcher-list-hdr">
+            <span>已保存的连接</span>
+            <button class="status-btn" style="padding:0 4px; color:var(--text-3);" onclick="clearAllConnsForEmptyPreview()">清空预览空状态</button>
+          </div>
+          <div id="launcherConnList" style="display:flex; flex-direction:column; gap:8px;"></div>
+        </div>
+
+        <!-- True Zero-Connection Empty State (shown when CONNECTIONS.length === 0) -->
+        <div id="launcherZeroSection" class="hidden" style="width:100%; display:flex; flex-direction:column; align-items:center; gap:14px;">
+          <div class="empty-quick-grid">
+            <div class="empty-mini-card" onclick="restoreSampleConns()">
+              <div class="empty-mini-title"><i data-hgi="refresh" data-size="14" style="color:var(--accent)"></i> 加载示例连接</div>
+              <div class="empty-mini-desc">恢复预置的生产/预发/本地示例库</div>
+            </div>
+            <div class="empty-mini-card" onclick="openSettingsModal('mcp')">
+              <div class="empty-mini-title"><i data-hgi="plug" data-size="14" style="color:var(--cyan)"></i> 本地 MCP 服务</div>
+              <div class="empty-mini-desc">配置本地只读 MCP 供外部 Agent 调用</div>
+            </div>
+            <div class="empty-mini-card" onclick="openSettingsModal('general')">
+              <div class="empty-mini-title"><i data-hgi="settings" data-size="14" style="color:var(--text-2)"></i> 偏好设置</div>
+              <div class="empty-mini-desc">自定义字体、毛玻璃质感与快捷键</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Workspace -->
+    <div class="workspace hidden" id="mainWorkspace">
+      <!-- Left Sidebar -->
+      <aside class="sidebar">
+        <div class="sidebar-top">
+          <div class="schema-row">
+            <select class="schema-select" id="schemaSelect">
+              <option value="public">schema: public</option>
+              <option value="analytics">schema: analytics</option>
+              <option value="auth">schema: auth</option>
+            </select>
+            <button class="btn" style="padding:0 8px" title="刷新 Schema" onclick="showToast('Schema 元数据已刷新 (18ms)')"><i data-hgi="refresh" data-size="14"></i></button>
+          </div>
+          <div class="search-box">
+            <i data-hgi="search" data-size="13" style="position:absolute;left:9px;color:var(--text-3);pointer-events:none;"></i>
+            <input type="text" id="tableFilterInput" placeholder="过滤表、视图、函数..." />
+          </div>
+        </div>
+        <div class="sidebar-tree" id="sidebarTree"></div>
+      </aside>
+
+      <!-- Main Pane -->
+      <main class="main-pane">
+        <div class="tabbar" id="tabBar"></div>
+
+        <!-- TABLE VIEW -->
+        <div id="tableView" style="flex:1; display:flex; flex-direction:column; min-height:0;">
+          <div class="subtoolbar">
+            <div class="segmented">
+              <button class="seg-btn active" data-subview="data">数据</button>
+              <button class="seg-btn" data-subview="structure">表结构</button>
+            </div>
+
+            <div class="where-bar" id="whereWrap">
+              <span class="where-prefix">WHERE</span>
+              <input type="text" id="whereInput" placeholder="输入关键字或条件，如 enterprise / active..." />
+              <button class="btn" style="height:22px;padding:0 8px;font-size:11px" id="applyWhereBtn">筛选</button>
+            </div>
+
+            <div style="display:flex; gap:6px; align-items:center;" id="dataActions">
+              <button class="btn" id="colsPickerBtn"><i data-hgi="columns" data-size="13"></i> 列显示</button>
+              <button class="btn" id="addRowBtn"><i data-hgi="plus" data-size="13"></i> 新增行</button>
+              <button class="btn danger" id="delRowBtn"><i data-hgi="trash" data-size="13"></i> 删除</button>
+              <button class="btn" id="importBtn"><i data-hgi="upload" data-size="13"></i> 导入</button>
+              <button class="btn" id="exportBtn"><i data-hgi="download" data-size="13"></i> 导出</button>
+            </div>
+          </div>
+
+          <!-- Data Grid -->
+          <div class="grid-wrap" id="dataGridWrap"></div>
+          <div class="grid-footer" id="dataGridFooter">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <span id="gridRowCount">显示 6 行</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <select class="schema-select" style="padding:2px 6px; font-size:11px; width:auto;">
+                <option>LIMIT 100</option><option>LIMIT 500</option><option>LIMIT 1000</option>
+              </select>
+              <button class="btn" style="height:22px;padding:0 6px"><i data-hgi="arrow-left" data-size="13"></i></button>
+              <span style="font-family:var(--font-mono)">第 1 / 483 页</span>
+              <button class="btn" style="height:22px;padding:0 6px"><i data-hgi="arrow-right" data-size="13"></i></button>
+            </div>
+          </div>
+
+          <!-- Structure View -->
+          <div id="structureView" class="hidden" style="flex:1; display:flex; flex-direction:column; min-height:0;">
+            <div class="subtoolbar" style="justify-content:space-between;">
+              <div class="segmented">
+                <button class="seg-btn active" data-struct="columns">字段</button>
+                <button class="seg-btn" data-struct="indexes">索引 (3)</button>
+                <button class="seg-btn" data-struct="constraints">约束与外键</button>
+                <button class="seg-btn" data-struct="ddl">DDL</button>
+              </div>
+              <button class="btn primary" onclick="showToast('已生成 ALTER TABLE ADD COLUMN 草稿')">+ 新增字段</button>
+            </div>
+            <div class="grid-wrap" id="structureContent"></div>
+          </div>
+        </div>
+
+        <!-- SQL WORKBENCH VIEW -->
+        <div id="sqlView" class="sql-workspace hidden">
+          <div class="subtoolbar" style="justify-content:space-between;">
+            <div style="display:flex; gap:6px;">
+              <button class="btn primary" id="runSqlBtn"><i data-hgi="play" data-size="13"></i> 运行 (⌘⏎)</button>
+              <button class="btn" id="formatSqlBtn"><i data-hgi="magic" data-size="13"></i> 格式化</button>
+            </div>
+            <div style="display:flex; gap:6px; align-items:center;">
+              <div class="dropdown-wrap">
+                <button class="btn" id="snippetsDropBtn">
+                  <i data-hgi="code" data-size="13"></i> 代码片段 <i data-hgi="arrow-down" data-size="12" style="color:var(--text-3)"></i>
+                </button>
+                <div class="snippets-menu" id="snippetsMenu"></div>
+              </div>
+              <button class="btn" id="saveSnippetBtn" title="保存当前 SQL 为片段">
+                <i data-hgi="plus" data-size="13"></i> 保存片段
+              </button>
+            </div>
+          </div>
+          <div class="sql-editor-pane">
+            <div class="sql-gutter" id="sqlGutter"></div>
+            <div class="sql-editor-wrap">
+              <pre class="sql-highlight" id="sqlHighlight" aria-hidden="true"></pre>
+              <textarea class="sql-textarea" id="sqlTextarea" spellcheck="false">SELECT
+  u.id,
+  u.email,
+  u.plan,
+  COUNT(o.id) AS total_orders,
+  COALESCE(SUM(o.amount_cents), 0) / 100.0 AS ltv_usd
+FROM public.users u
+LEFT JOIN public.orders o ON o.user_id = u.id
+WHERE u.status = 'active'
+GROUP BY u.id, u.email, u.plan
+ORDER BY ltv_usd DESC
+LIMIT 50;</textarea>
+            </div>
+          </div>
+          <div class="sql-results-pane">
+            <div class="subtoolbar" style="padding:6px 12px; justify-content:space-between;">
+              <div class="segmented">
+                <button class="seg-btn active" data-sqlres="result">查询结果 (4)</button>
+                <button class="seg-btn" data-sqlres="explain">执行计划</button>
+                <button class="seg-btn" data-sqlres="messages">消息日志</button>
+                <button class="seg-btn" data-sqlres="history">查询历史</button>
+              </div>
+              <span style="font-size:11.5px; color:var(--green); font-family:var(--font-mono);" id="sqlTiming">14.2 ms · 4 行</span>
+            </div>
+            <div class="grid-wrap" id="sqlResultGrid"></div>
+            <div class="explain-container hidden" id="sqlExplainTree"></div>
+            <div class="explain-container hidden" id="sqlMessages"></div>
+            <div class="explain-container hidden" id="sqlHistoryList"></div>
+          </div>
+        </div>
+
+        <!-- SERVER MONITOR VIEW -->
+        <div id="monitorView" class="monitor-wrap hidden">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <div style="font-size:15px; font-weight:600;">PostgreSQL 实时监控</div>
+              <div style="font-size:12px; color:var(--text-3);">pg_stat_activity 与 pg_stat_database 实时采样</div>
+            </div>
+            <button class="btn" onclick="showToast('已刷新实时指标')"><i data-hgi="refresh" data-size="13"></i> 刷新</button>
+          </div>
+          <div class="metric-grid">
+            <div class="metric-card">
+              <span class="metric-label">活跃连接数</span>
+              <span class="metric-val" style="color:var(--accent)">38 / 200</span>
+              <span class="metric-sub">12 活跃 · 24 空闲 · 2 等待</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">缓存命中率</span>
+              <span class="metric-val" style="color:var(--green)">99.42%</span>
+              <span class="metric-sub">共享缓冲区健康</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">数据库体积</span>
+              <span class="metric-val">18.6 GB</span>
+              <span class="metric-sub">数据 12.1G · 索引 6.5G</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">每秒事务数 (TPS)</span>
+              <span class="metric-val" style="color:var(--purple)">1,420</span>
+              <span class="metric-sub">平均查询延迟 4.8ms</span>
+            </div>
+          </div>
+          <div style="font-weight:600; font-size:13px;">活跃会话 (pg_stat_activity)</div>
+          <div style="border:1px solid var(--border); border-radius:var(--radius-md); overflow:hidden;">
+            <table class="data-grid">
+              <thead><tr><th style="width:76px">PID</th><th style="width:110px">用户</th><th style="width:110px">状态</th><th style="width:90px">耗时</th><th>查询语句</th><th style="width:96px">操作</th></tr></thead>
+              <tbody id="activityTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Staged Changes Floating Bar -->
+        <div class="staged-bar" id="stagedBar">
+          <div class="staged-count"><span>●</span><span id="stagedCountText">0 项待提交修改</span></div>
+          <button class="btn" id="previewSqlBtn">预览 SQL</button>
+          <button class="btn" id="discardBtn">丢弃</button>
+          <button class="btn success" id="commitBtn">提交修改</button>
+        </div>
+      </main>
+
+      <!-- Right Drawer: Cell & Row Inspector -->
+      <aside class="right-drawer" id="rightDrawer">
+        <div class="drawer-header">
+          <div class="segmented">
+            <button class="seg-btn active" data-drawer="cell">单元格检视</button>
+            <button class="seg-btn" data-drawer="row">行表单</button>
+          </div>
+          <button class="icon-btn" id="closeDrawerBtn"><i data-hgi="cancel" data-size="14"></i></button>
+        </div>
+
+        <!-- Cell Inspector -->
+        <div class="drawer-body" id="cellInspectorBody">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-size:11px; color:var(--text-3);">当前单元格</span>
+            <span class="col-type" id="inspType">jsonb</span>
+          </div>
+          <div style="font-family:var(--font-mono); font-size:12px; font-weight:600;" id="inspColName">users.metadata</div>
+          <textarea class="json-editor" id="inspEditor"></textarea>
+          <div style="display:flex; gap:6px;">
+            <button class="btn primary" style="flex:1; justify-content:center;" id="applyInspBtn">应用到暂存区</button>
+            <button class="btn" id="formatJsonBtn">格式化 JSON</button>
+          </div>
+        </div>
+
+        <!-- Row Form Inspector -->
+        <div class="drawer-body hidden" id="rowInspectorBody">
+          <div style="font-size:11px; color:var(--text-3);" id="rowFormTitle">第 1 行 · 竖排编辑</div>
+          <div id="rowFormFields" style="display:flex; flex-direction:column; gap:10px;"></div>
+          <button class="btn primary" style="justify-content:center;" id="applyRowFormBtn">将整行修改应用到暂存区</button>
+        </div>
+      </aside>
+    </div>
+
+    <!-- Statusbar -->
+    <footer class="statusbar">
+      <div class="status-group">
+        <span class="status-item"><span class="env-dot local" style="width:6px;height:6px;box-shadow:none;"></span>PostgreSQL 16.4</span>
+        <div class="status-sep"></div>
+        <span class="status-item" style="font-family:var(--font-mono);color:var(--text-3);">SSH · 11ms</span>
+        <div class="status-sep"></div>
+        <span class="status-item" id="statusRows" style="color:var(--text-3);">public.users</span>
+      </div>
+      <div class="status-group">
+        <button class="status-btn safe-on" id="safeModeBtn" title="点击切换安全模式 / 直连模式">
+          <i data-hgi="shield-check" data-size="12"></i> 安全模式
+        </button>
+        <div class="status-sep"></div>
+        <button class="status-btn mcp-on" id="mcpBtn" title="点击查看本地 MCP 服务配置">
+          <i data-hgi="plug" data-size="12"></i> MCP: 只读
+        </button>
+        <div class="status-sep"></div>
+        <span class="status-item" style="color:var(--text-3);font-family:var(--font-mono);">UTF-8</span>
+      </div>
+    </footer>
+  </div>
+</div>
+
+<!-- Context Menu -->
+<div class="ctx-menu" id="cellCtxMenu">
+  <div class="ctx-item" data-ctx="copy"><span>复制单元格</span><span class="kbd">⌘C</span></div>
+  <div class="ctx-item" data-ctx="copyJson"><span>复制整行 JSON</span></div>
+  <div class="ctx-item" data-ctx="copyInsert"><span>复制为 SQL INSERT</span></div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item" data-ctx="setNull"><span>设为 NULL</span></div>
+  <div class="ctx-item" data-ctx="revertCell" id="ctxRevertItem"><span>撤销此格修改</span><span class="kbd">⌘Z</span></div>
+  <div class="ctx-item" data-ctx="cloneRow"><span>复制该行</span></div>
+  <div class="ctx-item" data-ctx="deleteRow" style="color:var(--red)"><span>删除该行</span></div>
+</div>
+
+<!-- Command Palette Modal -->
+<div class="modal-backdrop" id="cmdModal">
+  <div class="modal-card">
+    <input type="text" class="cmd-input" id="cmdSearchInput" placeholder="搜索表名、打开监控、切换连接或执行命令..." />
+    <div class="cmd-list" id="cmdList"></div>
+  </div>
+</div>
+
+<!-- Connection Manager Modal -->
+<div class="modal-backdrop" id="connModal">
+  <div class="modal-card">
+    <div class="modal-header">
+      <span>PostgreSQL 连接管理</span>
+      <div style="display:flex; gap:6px;">
+        <button class="btn primary" onclick="openNewConnModal()">+ 新建连接</button>
+        <button class="icon-btn" onclick="closeModals()"><i data-hgi="cancel" data-size="14"></i></button>
+      </div>
+    </div>
+    <div class="modal-body" id="connListBody"></div>
+  </div>
+</div>
+
+<!-- New Connection Modal (Step 1: Driver Picker -> Step 2: Config Form) -->
+<div class="modal-backdrop" id="newConnModal" style="padding-top:5vh;">
+  <div class="modal-card" style="width:600px;">
+    <div class="modal-header">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <button class="icon-btn hidden" id="ncBackBtn" style="height:24px;min-width:24px;padding:0 5px;" title="返回选择数据库类型" onclick="showConnStep(1)">
+          <i data-hgi="arrow-left" data-size="14"></i>
+        </button>
+        <span id="ncPreviewIcon" class="hidden" style="width:24px;height:24px;border-radius:6px;background:#3b82f6;color:#fff;display:inline-flex;align-items:center;justify-content:center;"></span>
+        <span id="ncModalTitle">选择数据库类型</span>
+      </div>
+      <button class="icon-btn" onclick="closeModals()"><i data-hgi="cancel" data-size="14"></i></button>
+    </div>
+
+    <!-- Step 1: Choose Database Type -->
+    <div class="modal-body" id="ncStep1">
+      <div style="font-size:12px; color:var(--text-3);">请选择要连接的数据库引擎</div>
+      <div class="db-driver-grid" id="dbDriverGrid"></div>
+    </div>
+
+    <!-- Step 2: Connection Configuration -->
+    <div class="modal-body hidden" id="ncStep2">
+      <div class="field" id="ncUriRow">
+        <label>快捷粘贴连接 URI（可选）</label>
+        <input type="text" id="ncUriInput" placeholder="postgresql://user:pass@host:5432/dbname?sslmode=require" />
+      </div>
+      <div class="form-grid">
+        <div class="field"><label>连接名称</label><input type="text" id="ncName" value="analytics_replica" /></div>
+        <div class="field"><label>环境标签（自定义）</label><input type="text" id="ncTag" value="数据分析" placeholder="如：生产、预发、本地、灰度" /></div>
+      </div>
+      <div class="field">
+        <label>连接主色（应用于首页图标背景与工作台主题色）</label>
+        <div class="color-picker-bar">
+          <div class="color-swatches" id="ncColorSwatches">
+            <div class="swatch" data-color="#ef4444" style="background:#ef4444;--swatch-c:#ef4444" title="生产红"></div>
+            <div class="swatch" data-color="#f59e0b" style="background:#f59e0b;--swatch-c:#f59e0b" title="预发琥珀"></div>
+            <div class="swatch" data-color="#10b981" style="background:#10b981;--swatch-c:#10b981" title="本地绿"></div>
+            <div class="swatch active" data-color="#3b82f6" style="background:#3b82f6;--swatch-c:#3b82f6" title="经典蓝"></div>
+            <div class="swatch" data-color="#6366f1" style="background:#6366f1;--swatch-c:#6366f1" title="靛蓝"></div>
+            <div class="swatch" data-color="#8b5cf6" style="background:#8b5cf6;--swatch-c:#8b5cf6" title="紫罗兰"></div>
+            <div class="swatch" data-color="#06b6d4" style="background:#06b6d4;--swatch-c:#06b6d4" title="青色"></div>
+          </div>
+          <label class="custom-color-pill" title="点击打开系统取色器">
+            <span class="custom-color-dot" id="ncCustomDot" style="background:#3b82f6;"></span>
+            <span id="ncColorHex">#3B82F6</span>
+            <input type="color" id="ncColorPicker" value="#3b82f6" />
+          </label>
+        </div>
+      </div>
+
+      <!-- SQLite File Path Row -->
+      <div class="field hidden" id="ncSqliteRow">
+        <label>本地 SQLite 文件路径</label>
+        <div style="display:flex; gap:8px;">
+          <input type="text" id="ncSqlitePath" style="flex:1" value="/Users/yuantang/data/app.sqlite3" />
+          <button class="btn" onclick="showToast('已打开系统文件选择器')">选择文件...</button>
+        </div>
+      </div>
+
+      <!-- Network DB Fields -->
+      <div class="form-grid" id="ncNetworkFields">
+        <div class="field"><label>主机地址</label><input type="text" id="ncHost" value="10.0.14.22" /></div>
+        <div class="field"><label>端口</label><input type="text" id="ncPort" value="5432" /></div>
+        <div class="field"><label id="ncDbLabel">数据库名</label><input type="text" id="ncDb" value="velodb_analytics" /></div>
+        <div class="field"><label>SSL 模式</label>
+          <select><option>require</option><option>verify-full</option><option>prefer</option><option>disable</option></select>
+        </div>
+      </div>
+
+      <!-- SSH Jump Host Tunnel -->
+      <div class="ssh-box" id="ncSshBox">
+        <div class="ssh-hdr">
+          <div>
+            <div style="font-size:12px; font-weight:600; color:var(--text-1);">SSH 跳板机转发 (SSH Tunnel)</div>
+            <div style="font-size:11px; color:var(--text-3);">通过 Bastion 跳板机加密转发内网数据库端口</div>
+          </div>
+          <label class="switch"><input type="checkbox" id="ncSshToggle" onchange="$('ncSshFields').classList.toggle('hidden', !this.checked)"><span class="slider"></span></label>
+        </div>
+        <div class="ssh-fields hidden" id="ncSshFields">
+          <div class="form-grid">
+            <div class="field"><label>跳板机地址 (SSH Host)</label><input type="text" id="ncSshHost" placeholder="bastion.company.com" value="bastion.internal" /></div>
+            <div class="field"><label>SSH 端口</label><input type="text" id="ncSshPort" value="22" /></div>
+            <div class="field"><label>SSH 用户名</label><input type="text" id="ncSshUser" value="ops" /></div>
+            <div class="field"><label>认证方式</label>
+              <select id="ncSshAuth" onchange="$('ncSshKeyRow').classList.toggle('hidden', this.value!=='key'); $('ncSshPassRow').classList.toggle('hidden', this.value==='key');">
+                <option value="key">私钥文件 (Private Key)</option>
+                <option value="password">密码认证 (Password)</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-grid" id="ncSshKeyRow">
+            <div class="field"><label>私钥路径</label><input type="text" value="~/.ssh/id_ed25519" /></div>
+            <div class="field"><label>私钥密码 (Passphrase，可选)</label><input type="password" placeholder="••••••" /></div>
+          </div>
+          <div class="field hidden" id="ncSshPassRow">
+            <label>SSH 密码</label><input type="password" placeholder="输入跳板机登录密码" />
+          </div>
+        </div>
+      </div>
+
+      <div style="padding:9px 12px; border-radius:var(--radius-md); background:var(--surface-1); border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+        <span style="font-size:12px; font-weight:500;">只读安全锁（禁止写入与 DDL 变更）</span>
+        <label class="switch"><input type="checkbox" id="ncReadOnly" /><span class="slider"></span></label>
+      </div>
+    </div>
+    <div class="modal-footer hidden" id="ncStep2Footer">
+      <button class="btn" onclick="showToast('✓ 连接测试成功 (14ms)')">测试连接</button>
+      <button class="btn primary" id="saveNewConnBtn">保存并连接</button>
+    </div>
+  </div>
+</div>
+
+<!-- MCP Server Config Modal -->
+<div class="modal-backdrop" id="mcpModal">
+  <div class="modal-card">
+    <div class="modal-header">
+      <span><i data-hgi="plug" data-size="15" style="color:var(--cyan);margin-right:6px;"></i>VeloDB 本地 MCP 服务</span>
+      <button class="icon-btn" onclick="closeModals()"><i data-hgi="cancel" data-size="14"></i></button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:12.5px; color:var(--text-2); line-height:1.55;">
+        VeloDB 将当前数据库连接与 Schema 能力通过标准 <strong>MCP (Model Context Protocol)</strong> 暴露给你的外部 Agent（Claude Code / Cursor / Antigravity）。
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-radius:var(--radius-md); background:var(--surface-1); border:1px solid var(--border);">
+        <div>
+          <div style="font-weight:600; font-size:12.5px;">Agent 只读安全锁</div>
+          <div style="font-size:11px; color:var(--text-3);">仅暴露 list_schemas / describe_table / run_read_query / explain_query</div>
+        </div>
+        <span class="env-badge local">已启用</span>
+      </div>
+      <div>
+        <div style="font-size:11px; color:var(--text-3); margin-bottom:6px;">客户端配置 (mcp_config.json)</div>
+        <pre class="code-block" id="mcpJsonCode">{
+  "mcpServers": {
+    "velodb": {
+      "command": "/Applications/VeloDB.app/Contents/MacOS/velodb-mcp",
+      "args": ["--connection", "velodb_prod_us_east", "--read-only"]
+    }
+  }
+}</pre>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModals()">关闭</button>
+      <button class="btn primary" onclick="navigator.clipboard?.writeText($('mcpJsonCode').textContent); showToast('已复制 MCP 配置 JSON'); closeModals();">复制配置 JSON</button>
+    </div>
+  </div>
+</div>
+
+<!-- Columns Visibility Modal -->
+<div class="modal-backdrop" id="colsModal">
+  <div class="modal-card" style="width:360px;">
+    <div class="modal-header">
+      <span>列显示配置</span>
+      <button class="icon-btn" onclick="closeModals()"><i data-hgi="cancel" data-size="14"></i></button>
+    </div>
+    <div class="modal-body" id="colsChecklist"></div>
+    <div class="modal-footer">
+      <button class="btn primary" onclick="closeModals()">完成</button>
+    </div>
+  </div>
+</div>
+
+<!-- Preview SQL / Commit Modal -->
+<div class="modal-backdrop" id="sqlPreviewModal">
+  <div class="modal-card">
+    <div class="modal-header"><span>预览事务 SQL</span><button class="icon-btn" onclick="closeModals()"><i data-hgi="cancel" data-size="14"></i></button></div>
+    <div class="modal-body">
+      <div id="prodWarnBanner" style="padding:8px 10px; border-radius:var(--radius-sm); background:var(--red-soft); color:var(--red); font-size:12px; font-weight:500; display:flex; align-items:center; gap:7px;">
+        <i data-hgi="alert" data-size="15"></i> 安全模式：当前连接为生产环境，请仔细核对事务 SQL。
+      </div>
+      <pre class="code-block" id="previewSqlCode" style="max-height:260px;"></pre>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModals()">取消</button>
+      <button class="btn success" id="confirmCommitBtn">确认执行 COMMIT</button>
+    </div>
+  </div>
+</div>
+
+<!-- Export / Import Modal -->
+<div class="modal-backdrop" id="exportModal">
+  <div class="modal-card">
+    <div class="modal-header"><span id="ioModalTitle">导出表数据</span><button class="icon-btn" onclick="closeModals()"><i data-hgi="cancel" data-size="14"></i></button></div>
+    <div class="modal-body" id="exportBody">
+      <div class="segmented" style="align-self:flex-start;">
+        <button class="seg-btn active" data-expfmt="csv">CSV</button>
+        <button class="seg-btn" data-expfmt="json">JSON</button>
+        <button class="seg-btn" data-expfmt="sql">SQL INSERT</button>
+      </div>
+      <pre class="code-block" id="exportPreviewCode" style="max-height:240px;"></pre>
+    </div>
+    <div class="modal-body hidden" id="importBody">
+      <div style="border:1.5px dashed var(--border-strong); border-radius:var(--radius-md); padding:28px; text-align:center; color:var(--text-2); cursor:pointer;" onclick="showToast('已解析 users_batch.csv (120 行)，字段自动映射成功')">
+        <div style="margin-bottom:8px; color:var(--accent);"><i data-hgi="upload" data-size="26"></i></div>
+        <div style="font-weight:600; color:var(--text-1)">拖拽 CSV / JSON 文件到此处，或点击模拟选择</div>
+        <div style="font-size:11.5px; color:var(--text-3); margin-top:4px;">支持自动推断列名、NULL 映射与冲突策略 (ON CONFLICT DO NOTHING)</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModals()">关闭</button>
+      <button class="btn primary" id="copyExportBtn">复制输出内容</button>
+    </div>
+  </div>
+</div>
+
+<!-- Snippets Manager / Save Modal -->
+<div class="modal-backdrop" id="snippetsModal">
+  <div class="modal-card">
+    <div class="modal-header">
+      <span id="snipModalTitle">管理 SQL 代码片段</span>
+      <button class="icon-btn" onclick="closeModals()"><i data-hgi="cancel" data-size="14"></i></button>
+    </div>
+    <div class="modal-body">
+      <div style="display:flex; gap:8px;">
+        <input type="text" id="newSnipName" placeholder="输入片段名称（例如：月活用户统计）" style="flex:1; padding:7px 10px; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--surface-1); color:var(--text-1); font-size:12px; outline:none;" />
+        <button class="btn primary" id="confirmSaveSnipBtn">保存当前 SQL</button>
+      </div>
+      <div id="snipManagerList" style="display:flex; flex-direction:column; gap:6px; margin-top:4px;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModals()">完成</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings Modal (⌘,) -->
+<div class="modal-backdrop" id="settingsModal" style="padding-top:7vh;">
+  <div class="settings-card">
+    <nav class="settings-nav">
+      <div class="settings-nav-title"><span>偏好设置</span><span class="kbd">⌘,</span></div>
+      <button class="settings-nav-item active" data-scat="general"><span class="macos-icon mi-blue"><i data-hgi="paint" data-size="13"></i></span> 常规与外观</button>
+      <button class="settings-nav-item" data-scat="grid"><span class="macos-icon mi-indigo"><i data-hgi="table" data-size="13"></i></span> 数据网格与格式</button>
+      <button class="settings-nav-item" data-scat="editor"><span class="macos-icon mi-purple"><i data-hgi="code" data-size="13"></i></span> SQL 编辑器</button>
+      <button class="settings-nav-item" data-scat="safety"><span class="macos-icon mi-green"><i data-hgi="shield-check" data-size="13"></i></span> 安全与查询</button>
+      <button class="settings-nav-item" data-scat="keys"><span class="macos-icon mi-orange"><i data-hgi="keyboard" data-size="13"></i></span> 快捷键</button>
+      <button class="settings-nav-item" data-scat="mcp"><span class="macos-icon mi-teal"><i data-hgi="plug" data-size="13"></i></span> MCP 服务</button>
+      <button class="settings-nav-item" data-scat="advanced"><span class="macos-icon mi-gray"><i data-hgi="sliders" data-size="13"></i></span> 高级与配置</button>
+    </nav>
+    <div class="settings-main">
+      <div class="settings-header">
+        <div>
+          <div style="font-size:14px; font-weight:600;" id="settingsPaneTitle">常规与外观</div>
+          <div style="font-size:11.5px; color:var(--text-3);" id="settingsPaneDesc">主题、字体、毛玻璃与界面密度（调整后实时生效）</div>
+        </div>
+        <button class="icon-btn" onclick="closeModals()"><i data-hgi="cancel" data-size="14"></i></button>
+      </div>
+      <div class="settings-content" id="settingsContent"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // --- Hugeicons (Stroke Rounded) SVG Library ---
+  const HGI_PATHS = {
+    'search': '<circle cx="11" cy="11" r="8"/><path d="M17.5 17.5L22 22"/>',
+    'arrow-down': '<path d="M6 9l6 6 6-6"/>',
+    'arrow-left': '<path d="M15 6l-6 6 6 6"/>',
+    'arrow-right': '<path d="M9 6l6 6-6 6"/>',
+    'activity': '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
+    'shield-check': '<path d="M12 2.5L4.5 5.5v6c0 5.2 3.2 8.7 7.5 10 4.3-1.3 7.5-4.8 7.5-10v-6L12 2.5z"/><path d="M9 12l2 2 4-4"/>',
+    'alert': '<path d="M12 9v4m0 3.5h.01M10.3 3.9L2.6 17.3A2 2 0 0 0 4.3 20h15.4a2 2 0 0 0 1.7-2.7L13.7 3.9a2 2 0 0 0-3.4 0z"/>',
+    'plug': '<path d="M12 22v-5m-3-9V3m6 5V3M6 8h12v3a6 6 0 0 1-12 0V8z"/>',
+    'sidebar-left': '<rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 3v18"/>',
+    'sidebar-right': '<rect x="3" y="3" width="18" height="18" rx="3"/><path d="M15 3v18"/>',
+    'moon': '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>',
+    'sun': '<circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4l1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4m11.4-11.4l1.4-1.4"/>',
+    'settings': '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.08a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.08a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+    'refresh': '<path d="M21 12a9 9 0 1 1-2.6-6.4L21 8m0-5v5h-5"/>',
+    'plus': '<path d="M12 5v14M5 12h14"/>',
+    'code': '<path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/>',
+    'table': '<rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M3 10h18M9 10v10"/>',
+    'view': '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/>',
+    'func': '<path d="M9 17c2 0 2.8-1 2.8-2.8V10c0-2 1-3.3 3.2-3m-6 4.2h5.7"/>',
+    'tag': '<path d="M12.6 2.6L21 11l-8.4 8.4a2 2 0 0 1-2.8 0L3 12.6V4a1 1 0 0 1 1-1h8.6z"/><circle cx="7.5" cy="7.5" r="1.2"/>',
+    'puzzle': '<path d="M19.4 14.6a2 2 0 1 0 0-4H18V7a2 2 0 0 0-2-2h-3V3.6a2 2 0 1 0-4 0V5H6a2 2 0 0 0-2 2v3h1.4a2 2 0 1 1 0 4H4v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2.4h1.4z"/>',
+    'columns': '<rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M9 4v16M15 4v16"/>',
+    'trash': '<path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V6"/>',
+    'upload': '<path d="M12 16V4m0 0l-4 4m4-4l4 4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>',
+    'download': '<path d="M12 4v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>',
+    'play': '<path d="M7 4.8v14.4a1 1 0 0 0 1.5.85l11.2-7.2a1 1 0 0 0 0-1.7L8.5 3.95A1 1 0 0 0 7 4.8z"/>',
+    'flash': '<path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z"/>',
+    'magic': '<path d="M15 4V2m0 14v-2M8 9h2m10 0h2m-4.2-3.8l1.4-1.4M10.8 13.2l-6.6 6.6a1.5 1.5 0 0 1-2.1-2.1l6.6-6.6m8.5 2.1l1.4 1.4M10.8 5.2L9.4 3.8"/>',
+    'cancel': '<path d="M18 6L6 18M6 6l12 12"/>',
+    'key': '<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9m-2 2l2 2m-4-1l2 2"/>',
+    'link-up': '<path d="M7 17L17 7m0 0H9m8 0v8"/>',
+    'paint': '<circle cx="12" cy="12" r="9"/><circle cx="8.5" cy="10.5" r="1"/><circle cx="12" cy="8" r="1"/><circle cx="15.5" cy="10.5" r="1"/><path d="M15 15.5a2 2 0 0 1-2 2h-1a1.5 1.5 0 0 0 0 3"/>',
+    'keyboard': '<rect x="2" y="5" width="20" height="14" rx="2.5"/><path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 13h.01M18 13h.01M9 15h6"/>',
+    'database': '<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.66 3.58 3 8 3s8-1.34 8-3V5"/><path d="M4 12c0 1.66 3.58 3 8 3s8-1.34 8-3"/>',
+    'sliders': '<path d="M4 21v-7m0-4V3m8 18v-9m0-4V3m8 18v-5m0-4V3M2 14h4m4-6h4m4 8h4"/>'
+  };
+
+  function hgi(name, size = 14, cls = '') {
+    const p = HGI_PATHS[name] || HGI_PATHS['table'];
+    return `<svg class="hgi ${cls}" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+  }
+
+  function hydrateIcons() {
+    document.querySelectorAll('i[data-hgi]').forEach(el => {
+      const name = el.dataset.hgi;
+      const size = Number(el.dataset.size || 14);
+      const wrap = document.createElement('span');
+      wrap.innerHTML = hgi(name, size);
+      const svg = wrap.firstElementChild;
+      if (el.getAttribute('style')) svg.setAttribute('style', el.getAttribute('style'));
+      el.replaceWith(svg);
+    });
+  }
+
+  // --- Official Database Brand SVG Marks ---
+  const DB_DRIVERS = [
+    {
+      id: 'postgres', name: 'PostgreSQL', port: '5432', defaultDb: 'postgres',
+      uri: 'postgresql://user:pass@localhost:5432/postgres',
+      brandColor: '#336791',
+      svg: (sz = 24, mono = false) => `<svg width="${sz}" height="${sz}" viewBox="0 0 24 24" fill="none"><path d="M17.2 4.3c-1.4-.9-3.2-.8-4.5-.1-.8-.4-1.8-.6-2.8-.5-2.6.2-4.6 2.1-5.1 4.8-.5 2.5.4 5.5 2 7.2.7.8 1.6 1.1 2.4 1 .3 1.4.8 2.8 1.9 3.5.7.4 1.6.4 2.2-.1.5-.4.7-1.1.7-1.8 0-.4.2-.7.6-.7.6 0 1.4.2 2.1-.2 1.2-.7 1.7-2.2 1.8-3.5.1-1.3.1-2.7.5-3.9.5-1.5.7-3.4-.3-4.6-.4-.5-.9-.8-1.5-1.1z" fill="${mono ? '#fff' : '#336791'}"/><circle cx="9.6" cy="9.2" r="1" fill="${mono ? '#336791' : '#fff'}"/><path d="M12.8 11.4c.5 1.8.6 3.9.3 5.7" stroke="${mono ? '#336791' : '#fff'}" stroke-width="1.3" stroke-linecap="round"/><path d="M16.4 8.2c.6 1.2.4 3-.2 4.4" stroke="${mono ? '#336791' : '#fff'}" stroke-width="1.2" stroke-linecap="round"/></svg>`
+    },
+    {
+      id: 'mysql', name: 'MySQL', port: '3306', defaultDb: 'mysql',
+      uri: 'mysql://root:pass@localhost:3306/app_db',
+      brandColor: '#00758F',
+      svg: (sz = 24, mono = false) => `<svg width="${sz}" height="${sz}" viewBox="0 0 24 24" fill="none"><path d="M4.5 17.5c1.5-4.2 4.3-8.6 8.6-10.3 2.1-.8 4.4-.4 5.9 1.1.9.9 1.3 2.1 1 3.3-.4 1.5-1.7 2.4-3.1 2.7-1.8.4-3.4-.2-4.4-1.2-.5 1.3-1.4 2.6-2.7 3.4-.8.5-1.8.8-2.8.8" stroke="${mono ? '#fff' : '#00758F'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M15.2 9.4l2.4-1.6" stroke="${mono ? '#fff' : '#F29111'}" stroke-width="1.8" stroke-linecap="round"/><circle cx="15.8" cy="10.4" r="1" fill="${mono ? '#fff' : '#00758F'}"/></svg>`
+    },
+    {
+      id: 'sqlite', name: 'SQLite', port: 'Local File', defaultDb: 'app.sqlite3',
+      uri: 'sqlite:///Users/yuantang/data/app.sqlite3',
+      brandColor: '#0F80CC', isFile: true,
+      svg: (sz = 24, mono = false) => `<svg width="${sz}" height="${sz}" viewBox="0 0 24 24" fill="none"><rect x="3.5" y="4" width="13.5" height="16" rx="2.5" fill="${mono ? 'rgba(255,255,255,0.22)' : '#003B57'}" stroke="${mono ? '#fff' : '#0F80CC'}" stroke-width="1.5"/><path d="M19.5 4.5c-3.8 2.2-6.8 6.4-8.2 12.2 2.4-2.5 5.4-4.3 8.4-5.2-.3-2.5-.2-4.8-.2-7z" fill="${mono ? '#fff' : '#38BDF8'}"/><path d="M7 9h4M7 12.5h3" stroke="${mono ? '#fff' : '#93C5FD'}" stroke-width="1.4" stroke-linecap="round"/></svg>`
+    },
+    {
+      id: 'redis', name: 'Redis', port: '6379', defaultDb: '0',
+      uri: 'redis://default:pass@localhost:6379/0',
+      brandColor: '#DC382D',
+      svg: (sz = 24, mono = false) => `<svg width="${sz}" height="${sz}" viewBox="0 0 24 24" fill="none"><path d="M12 15.5l8.5-3.3v2.6L12 18.2 3.5 14.8v-2.6L12 15.5z" fill="${mono ? 'rgba(255,255,255,0.65)' : '#A41E11'}"/><path d="M12 12.2l8.5-3.3v2.5L12 14.8 3.5 11.4V8.9L12 12.2z" fill="${mono ? 'rgba(255,255,255,0.82)' : '#C62828'}"/><path d="M12 5.4l8.5 3.4L12 12.2 3.5 8.8 12 5.4z" fill="${mono ? '#fff' : '#DC382D'}"/><circle cx="12" cy="8.5" r="1.2" fill="${mono ? '#DC382D' : '#fff'}"/></svg>`
+    },
+    {
+      id: 'clickhouse', name: 'ClickHouse', port: '8123', defaultDb: 'default',
+      uri: 'http://default@localhost:8123/default',
+      brandColor: '#F59E0B',
+      svg: (sz = 24, mono = false) => `<svg width="${sz}" height="${sz}" viewBox="0 0 24 24" fill="none"><rect x="3.5" y="5" width="2.4" height="14" rx="1" fill="${mono ? '#fff' : '#FFCC01'}"/><rect x="3.5" y="15.5" width="2.4" height="3.5" rx="0.8" fill="${mono ? 'rgba(255,255,255,0.55)' : '#EF4444'}"/><rect x="7.6" y="5" width="2.4" height="14" rx="1" fill="${mono ? '#fff' : '#FFCC01'}"/><rect x="11.7" y="5" width="2.4" height="14" rx="1" fill="${mono ? '#fff' : '#FFCC01'}"/><rect x="15.8" y="5" width="2.4" height="14" rx="1" fill="${mono ? '#fff' : '#FFCC01'}"/><rect x="19.9" y="9.5" width="2.2" height="5" rx="1" fill="${mono ? '#fff' : '#FFCC01'}"/></svg>`
+    },
+    {
+      id: 'mariadb', name: 'MariaDB', port: '3306', defaultDb: 'mariadb',
+      uri: 'mariadb://root:pass@localhost:3306/app_db',
+      brandColor: '#003545',
+      svg: (sz = 24, mono = false) => `<svg width="${sz}" height="${sz}" viewBox="0 0 24 24" fill="none"><path d="M3.5 16.5c2.2-1.2 4-3.8 5.8-6.4 1.4-2 3.3-3.2 5.4-2.8 1.7.3 3.1 1.6 4.8 1.5-1.1 1.7-2.6 2.6-4.1 3.2.8 1.3.7 3-.3 4.2-1.4 1.5-4.4 1.7-7.2 1.2-1.6-.3-3.1-.4-4.4-.9z" fill="${mono ? '#fff' : '#003545'}"/><circle cx="15.4" cy="9.6" r="0.9" fill="${mono ? '#003545' : '#fff'}"/></svg>`
+    }
+  ];
+
+  function getDriver(id) { return DB_DRIVERS.find(d => d.id === id) || DB_DRIVERS[0]; }
+
+  const DEFAULT_CONNECTIONS = [
+    { id: 'prod', driver: 'postgres', name: 'velodb_prod_us_east', host: 'pg-prod.internal:5432/velodb', env: 'prod', label: '生产', color: '#ef4444', ssh: 'bastion.prod' },
+    { id: 'staging', driver: 'mysql', name: 'orders_mysql_staging', host: 'mysql-stg.internal:3306/orders', env: 'staging', label: '预发', color: '#f59e0b', ssh: 'bastion.stg' },
+    { id: 'local', driver: 'sqlite', name: 'local_dev_sqlite', host: '/Users/yuantang/data/dev.sqlite3', env: 'local', label: '本地', color: '#10b981', ssh: '' }
+  ];
+  let CONNECTIONS = [...DEFAULT_CONNECTIONS];
+  let ncSelectedColor = '#3b82f6';
+  let ncSelectedDriver = 'postgres';
+
+  function hexToRgba(hex, alpha) {
+    const h = hex.replace('#', '');
+    const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+
+  function applyConnectionAccent(color) {
+    const c = color || (state.theme === 'dark' ? '#3b82f6' : '#2563eb');
+    document.documentElement.style.setProperty('--accent', c);
+    document.documentElement.style.setProperty('--accent-soft', hexToRgba(c, state.theme === 'dark' ? 0.17 : 0.11));
+    document.documentElement.style.setProperty('--row-selected', hexToRgba(c, state.theme === 'dark' ? 0.16 : 0.09));
+  }
+
+  const SCHEMA_OBJECTS = {
+    public: {
+      '常用收藏': [{ type: 'table', name: 'users', meta: '48.2k · 14MB' }, { type: 'table', name: 'orders', meta: '192k · 62MB' }],
+      '数据表': [
+        { type: 'table', name: 'users', meta: '48.2k' },
+        { type: 'table', name: 'orders', meta: '192k' },
+        { type: 'table', name: 'events', meta: '1.4M' },
+        { type: 'table', name: 'api_keys', meta: '3.1k' }
+      ],
+      '视图与函数': [
+        { type: 'view', name: 'active_mrr_mv', meta: '物化视图' },
+        { type: 'func', name: 'calc_user_ltv()', meta: '函数' }
+      ],
+      '类型与扩展': [
+        { type: 'enum', name: 'user_status', meta: '枚举' },
+        { type: 'ext', name: 'pg_stat_statements', meta: 'v1.10' },
+        { type: 'ext', name: 'vector', meta: 'v0.7.4' }
+      ]
+    },
+    analytics: {
+      '视图': [
+        { type: 'view', name: 'daily_revenue_mv', meta: '物化视图' },
+        { type: 'view', name: 'cohort_retention', meta: '视图' }
+      ]
+    },
+    auth: {
+      '数据表': [
+        { type: 'table', name: 'sessions', meta: '12.4k' },
+        { type: 'table', name: 'audit_logs', meta: '850k' }
+      ]
+    }
+  };
+
+  const TABLES = {
+    users: {
+      columns: [
+        { name: 'id', type: 'uuid', pk: true, nullable: 'NO', def: 'gen_random_uuid()', comment: 'Primary user UUID' },
+        { name: 'email', type: 'text', nullable: 'NO', def: '-', comment: 'Unique login email' },
+        { name: 'plan', type: 'text', nullable: 'NO', def: "'free'", comment: 'Subscription tier' },
+        { name: 'status', type: 'user_status', nullable: 'NO', def: "'active'", comment: 'Account status enum' },
+        { name: 'metadata', type: 'jsonb', nullable: 'YES', def: "'{}'::jsonb", comment: 'Org & feature flags' },
+        { name: 'created_at', type: 'timestamptz', nullable: 'NO', def: 'now()', comment: 'Registration timestamp' }
+      ],
+      indexes: [
+        { name: 'users_pkey', cols: 'id', method: 'btree', unique: 'YES', size: '2.4 MB', scans: '1,420,910' },
+        { name: 'idx_users_email_uniq', cols: 'email', method: 'btree', unique: 'YES', size: '3.1 MB', scans: '892,104' },
+        { name: 'idx_users_metadata_gin', cols: 'metadata', method: 'gin', unique: 'NO', size: '5.8 MB', scans: '41,200' }
+      ],
+      constraints: [
+        { name: 'users_pkey', type: 'PRIMARY KEY', def: 'PRIMARY KEY (id)' },
+        { name: 'users_email_unique', type: 'UNIQUE', def: 'UNIQUE (email)' },
+        { name: 'users_plan_check', type: 'CHECK', def: "plan IN ('free','pro','enterprise')" }
+      ],
+      rows: [
+        { id: '8f14e45f-ea32-4c11', email: 'linus@kernel.org', plan: 'enterprise', status: 'active', metadata: '{"org":"Linux Foundation","seats":120,"sso":true}', created_at: '2026-10-12 09:14:22+00' },
+        { id: 'c9f0f895-fb98-4b22', email: 'ada@analytical.io', plan: 'pro', status: 'active', metadata: '{"org":"Babbage Labs","seats":12,"beta":true}', created_at: '2026-10-18 14:02:10+00' },
+        { id: '45c48cce-2e2d-47fb', email: 'grace@cobol.dev', plan: 'pro', status: 'pending', metadata: '{"org":"Navy Systems","region":"us-east"}', created_at: '2026-11-01 08:45:00+00' },
+        { id: 'd3d94468-02a4-4259', email: 'alan@bletchley.uk', plan: 'enterprise', status: 'active', metadata: '{"org":"Enigma AI","seats":64,"mfa":true}', created_at: '2026-11-04 19:33:51+00' },
+        { id: '6512bd43-d9ca-46e0', email: 'test_bot@spam.net', plan: 'free', status: 'suspended', metadata: null, created_at: '2026-11-11 02:11:09+00' },
+        { id: 'c20ad4d7-6fe9-4759', email: 'margaret@apollo.nasa', plan: 'enterprise', status: 'active', metadata: '{"org":"MIT Instrumentation","priority":"p0"}', created_at: '2026-11-20 11:28:40+00' }
+      ]
+    },
+    orders: {
+      columns: [
+        { name: 'id', type: 'int8', pk: true, nullable: 'NO', def: 'nextval()', comment: 'Order ID' },
+        { name: 'user_id', type: 'uuid', fk: 'users', nullable: 'NO', def: '-', comment: 'FK -> public.users(id)' },
+        { name: 'amount_cents', type: 'int4', nullable: 'NO', def: '0', comment: 'Amount in USD cents' },
+        { name: 'status', type: 'text', nullable: 'NO', def: "'paid'", comment: 'Order payment state' },
+        { name: 'metadata', type: 'jsonb', nullable: 'YES', def: 'NULL', comment: 'Invoice metadata' }
+      ],
+      indexes: [
+        { name: 'orders_pkey', cols: 'id', method: 'btree', unique: 'YES', size: '6.1 MB', scans: '982,001' },
+        { name: 'idx_orders_created', cols: 'created_at', method: 'btree', unique: 'NO', size: '8.4 MB', scans: '12,010' }
+      ],
+      constraints: [
+        { name: 'orders_pkey', type: 'PRIMARY KEY', def: 'PRIMARY KEY (id)' },
+        { name: 'orders_user_id_fkey', type: 'FOREIGN KEY', def: 'FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE' }
+      ],
+      rows: [
+        { id: '10492', user_id: '8f14e45f-ea32-4c11', amount_cents: '240000', status: 'paid', metadata: '{"invoice":"INV-2026-991","currency":"USD"}' },
+        { id: '10493', user_id: 'c9f0f895-fb98-4b22', amount_cents: '4900', status: 'paid', metadata: '{"invoice":"INV-2026-992","currency":"USD"}' },
+        { id: '10494', user_id: 'd3d94468-02a4-4259', amount_cents: '128000', status: 'pending', metadata: '{"invoice":"INV-2026-993","retry":1}' },
+        { id: '10495', user_id: '45c48cce-2e2d-47fb', amount_cents: '1900', status: 'failed', metadata: '{"invoice":"INV-2026-994","err":"card_declined"}' }
+      ]
+    }
+  };
+
+  let state = {
+    theme: 'light',
+    conn: CONNECTIONS[0],
+    safeMode: true,
+    schema: 'public',
+    activeTabId: 'tab-users',
+    tabs: [
+      { id: 'tab-users', type: 'table', title: 'users', table: 'users', subview: 'data', structTab: 'columns' },
+      { id: 'tab-orders', type: 'table', title: 'orders', table: 'orders', subview: 'data', structTab: 'columns' },
+      { id: 'tab-sql-1', type: 'sql', title: 'Query 1' }
+    ],
+    selectedRowIdx: 0,
+    selectedCol: 'metadata',
+    whereFilter: '',
+    sortCol: null,
+    sortDir: 'asc',
+    hiddenCols: new Set(),
+    stagedChanges: [],
+    addedRows: new Set(),
+    deletedRows: new Set(),
+    checkedRows: new Set(),
+    isEditingCell: false,
+    drawerOpen: true,
+    drawerTab: 'cell',
+    exportFmt: 'csv',
+    settingsCat: 'general',
+    settings: {
+      theme: 'system',
+      fontFamily: '"SF Mono", "JetBrains Mono", ui-monospace, monospace',
+      gridFontSize: 12,
+      rowDensity: 'comfortable', // compact | comfortable | spacious
+      vibrancy: true,
+      defaultLimit: 100,
+      nullLabel: 'NULL',
+      timezone: 'UTC',
+      thousandSep: false,
+      showFkJump: true,
+      editorFontSize: 13,
+      showLineNumbers: true,
+      tabSize: 2,
+      autoUppercase: true,
+      runBehavior: 'statement',
+      prodConfirm: true,
+      queryTimeout: 30,
+      keepAlive: true,
+      vimMode: false,
+      keymapPreset: 'macos',
+      mcpEnabled: true,
+      mcpReadOnly: true,
+      mcpTransport: 'stdio'
+    }
+  };
+
+  const $ = (id) => document.getElementById(id);
+  function showToast(msg) {
+    const t = $('toast'); t.textContent = msg; t.classList.add('show');
+    clearTimeout(t._timer); t._timer = setTimeout(() => t.classList.remove('show'), 2200);
+  }
+  function closeModals() {
+    document.querySelectorAll('.modal-backdrop').forEach(m => m.classList.remove('open'));
+    $('cellCtxMenu').classList.remove('open');
+  }
+
+  function getActiveTab() { return state.tabs.find(t => t.id === state.activeTabId); }
+  function getActiveTableObj() {
+    const tab = getActiveTab();
+    return TABLES[tab?.table || 'users'] || TABLES.users;
+  }
+
+  // --- Sidebar ---
+  function renderSidebar() {
+    const q = $('tableFilterInput').value.trim().toLowerCase();
+    const groups = SCHEMA_OBJECTS[state.schema] || {};
+    const activeTable = getActiveTab()?.table;
+    const icons = { table: hgi('table', 14), view: hgi('view', 14), func: hgi('func', 14), enum: hgi('tag', 14), ext: hgi('puzzle', 14) };
+    let html = '';
+    for (const [groupName, list] of Object.entries(groups)) {
+      const filtered = list.filter(o => o.name.toLowerCase().includes(q));
+      if (!filtered.length) continue;
+      html += `<div class="tree-group"><div class="tree-group-title"><span>${groupName}</span><span>${filtered.length}</span></div>`;
+      html += filtered.map(o => `
+        <div class="tree-item ${activeTable === o.name ? 'active' : ''}" onclick="openTableTab('${o.name}')">
+          <span style="opacity:0.75">${icons[o.type] || '▤'}</span>
+          <span class="name">${o.name}</span>
+          <span class="meta">${o.meta}</span>
+        </div>
+      `).join('') + `</div>`;
+    }
+    $('sidebarTree').innerHTML = html || `<div style="padding:14px; color:var(--text-3); text-align:center;">No matching objects</div>`;
+  }
+
+  // --- Tabs ---
+  function renderTabs() {
+    $('tabBar').innerHTML = state.tabs.map(t => {
+      const ico = t.type === 'table' ? hgi('table', 13) : t.type === 'monitor' ? hgi('activity', 13) : hgi('code', 13);
+      return `
+        <div class="tab ${t.id === state.activeTabId ? 'active' : ''}" onclick="switchTab('${t.id}')">
+          <span style="display:inline-flex;opacity:0.8">${ico}</span><span>${t.title}</span>
+          ${state.tabs.length > 1 ? `<span class="close-tab" onclick="event.stopPropagation(); closeTab('${t.id}')">${hgi('cancel', 11)}</span>` : ''}
+        </div>`;
+    }).join('') + `<button class="new-tab-btn" title="New SQL Query" onclick="addSqlTab()">${hgi('plus', 14)}</button>`;
+
+    const active = getActiveTab();
+    $('tableView').classList.toggle('hidden', active.type !== 'table');
+    $('sqlView').classList.toggle('hidden', active.type !== 'sql');
+    $('monitorView').classList.toggle('hidden', active.type !== 'monitor');
+
+    if (active.type === 'table') {
+      syncTableSubview();
+      renderTableData();
+      renderStructureContent();
+    } else if (active.type === 'sql') {
+      renderSqlResult(); renderExplain(); renderSqlMessages(); renderSqlHistory();
+    } else if (active.type === 'monitor') {
+      renderMonitor();
+    }
+    renderSidebar();
+  }
+
+  window.switchTab = (id) => { state.activeTabId = id; state.selectedRowIdx = 0; state.hiddenCols.clear(); renderTabs(); };
+  window.closeTab = (id) => {
+    state.tabs = state.tabs.filter(t => t.id !== id);
+    if (state.activeTabId === id) state.activeTabId = state.tabs[0].id;
+    renderTabs();
+  };
+  window.openTableTab = (name, filterVal = '') => {
+    let existing = state.tabs.find(t => t.type === 'table' && t.table === name);
+    if (!existing) {
+      existing = { id: 'tab-' + name + '-' + Date.now(), type: 'table', title: name, table: TABLES[name] ? name : 'users', subview: 'data', structTab: 'columns' };
+      state.tabs.push(existing);
+    }
+    state.activeTabId = existing.id;
+    state.whereFilter = filterVal;
+    $('whereInput').value = filterVal;
+    state.selectedRowIdx = 0;
+    state.selectedCol = (TABLES[existing.table] || TABLES.users).columns[0].name;
+    renderTabs();
+  };
+  window.addSqlTab = () => {
+    const idx = state.tabs.filter(t => t.type === 'sql').length + 1;
+    const id = 'tab-sql-' + Date.now();
+    state.tabs.push({ id, type: 'sql', title: `Query ${idx}` });
+    state.activeTabId = id;
+    renderTabs();
+  };
+  function openMonitorTab() {
+    let m = state.tabs.find(t => t.type === 'monitor');
+    if (!m) { m = { id: 'tab-monitor', type: 'monitor', title: 'Server Monitor' }; state.tabs.push(m); }
+    state.activeTabId = m.id;
+    renderTabs();
+  }
+
+  const ENUM_OPTIONS = {
+    status: ['active', 'pending', 'suspended', 'paid', 'failed'],
+    plan: ['free', 'pro', 'enterprise']
+  };
+
+  // --- Data Grid ---
+  function renderTableData() {
+    const tbl = getActiveTableObj();
+    const visibleCols = tbl.columns.filter(c => !state.hiddenCols.has(c.name));
+    const filter = state.whereFilter.toLowerCase();
+    let rows = tbl.rows.map((r, i) => ({ r, i })).filter(({ r }) => {
+      if (!filter) return true;
+      return Object.values(r).some(v => String(v ?? '').toLowerCase().includes(filter));
+    });
+    if (state.sortCol) {
+      rows.sort((a, b) => {
+        const av = String(a.r[state.sortCol] ?? ''), bv = String(b.r[state.sortCol] ?? '');
+        return state.sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+      });
+    }
+
+    const allChecked = rows.length > 0 && rows.every(({ i }) => state.checkedRows.has(i));
+    const ths = visibleCols.map(c => {
+      const sortArrow = state.sortCol === c.name ? (state.sortDir === 'asc' ? ' ↑' : ' ↓') : '';
+      const keyIcon = c.pk ? `<span class="pk-tag">${hgi('key', 12)}</span>` : c.fk ? `<span class="fk-tag">${hgi('link-up', 12)}</span>` : '';
+      return `<th style="width:${c.name === 'metadata' ? '230px' : c.name === 'email' ? '200px' : '155px'}" onclick="toggleSort('${c.name}')">
+        <div class="th-inner"><span>${keyIcon}${c.name}${sortArrow}</span><span class="col-type">${c.type}</span></div>
+      </th>`;
+    }).join('');
+
+    const trs = rows.map(({ r, i }) => {
+      const isChecked = state.checkedRows.has(i);
+      const cls = `${state.selectedRowIdx === i ? 'selected' : ''} ${isChecked ? 'row-checked' : ''} ${state.addedRows.has(i) ? 'row-added' : ''} ${state.deletedRows.has(i) ? 'row-deleted' : ''}`;
+      const tds = visibleCols.map(c => {
+        const val = r[c.name];
+        const dirtyObj = state.stagedChanges.find(s => s.rowIdx === i && s.col === c.name && s.kind === 'update');
+        const selCell = state.selectedRowIdx === i && state.selectedCol === c.name;
+        const dirtyTitle = dirtyObj ? `原值: ${dirtyObj.oldVal ?? 'NULL'} → 新值: ${dirtyObj.newVal ?? 'NULL'}` : '';
+        let rendered = val;
+        if (val === null || val === undefined) rendered = `<span class="cell-null">${state.settings.nullLabel}</span>`;
+        else if (c.fk && state.settings.showFkJump) rendered = `<span class="fk-jump" title="跳转到 ${c.fk}(id)" onclick="event.stopPropagation(); jumpFk('${c.fk}', '${val}')">${val} ${hgi('link-up', 12)}</span>`;
+        else if (c.type === 'jsonb') rendered = `<span class="cell-json">${val}</span>`;
+        else if (c.name === 'status') rendered = `<span class="badge-enum ${val}">● ${val}</span>`;
+        else if (state.settings.thousandSep && (c.type === 'int4' || c.type === 'int8') && !isNaN(Number(val))) rendered = Number(val).toLocaleString();
+
+        return `<td data-r="${i}" data-c="${c.name}" title="${dirtyTitle}" class="${dirtyObj ? 'cell-dirty' : ''} ${selCell ? 'cell-selected' : ''}"
+          onclick="selectCell(${i}, '${c.name}')"
+          oncontextmenu="openCellCtx(event, ${i}, '${c.name}')"
+          ondblclick="openCellDetail(${i}, '${c.name}')">${rendered}</td>`;
+      }).join('');
+      return `<tr class="${cls}"><td class="row-num" onclick="selectCell(${i}, '${visibleCols[0]?.name || 'id'}')">
+        <span class="rn-txt">${i + 1}</span>
+        <input type="checkbox" class="rn-chk" ${isChecked ? 'checked' : ''} onclick="event.stopPropagation(); toggleRowCheck(${i}, this.checked)" />
+      </td>${tds}</tr>`;
+    }).join('');
+
+    $('dataGridWrap').innerHTML = `<table class="data-grid"><thead><tr><th style="width:44px;text-align:center;cursor:default;"><input type="checkbox" style="accent-color:var(--accent);cursor:pointer;" ${allChecked ? 'checked' : ''} onchange="toggleAllRows(this.checked)" /></th>${ths}</tr></thead><tbody>${trs}</tbody></table>`;
+    $('gridRowCount').textContent = state.checkedRows.size > 0 ? `已选 ${state.checkedRows.size} 行 / 共 ${rows.length} 行` : `显示 ${rows.length} 行`;
+    $('statusRows').textContent = `public.${getActiveTab()?.table || 'users'} · ${rows.length} 行`;
+    updateInspector();
+    updateStagedBar();
+  }
+
+  window.toggleRowCheck = (rowIdx, checked) => {
+    if (checked) state.checkedRows.add(rowIdx); else state.checkedRows.delete(rowIdx);
+    renderTableData();
+  };
+  window.toggleAllRows = (checked) => {
+    state.checkedRows.clear();
+    if (checked) getActiveTableObj().rows.forEach((_, i) => state.checkedRows.add(i));
+    renderTableData();
+  };
+
+  window.toggleSort = (col) => {
+    if (state.sortCol === col) state.sortDir = state.sortDir === 'asc' ? 'desc' : 'asc';
+    else { state.sortCol = col; state.sortDir = 'asc'; }
+    renderTableData();
+  };
+  window.jumpFk = (targetTable, val) => {
+    openTableTab(targetTable, val);
+    showToast(`外键跳转 → public.${targetTable} (id = ${val})`);
+  };
+  window.selectCell = (rowIdx, col) => { state.selectedRowIdx = rowIdx; state.selectedCol = col; state.isEditingCell = false; renderTableData(); };
+
+  window.openCellDetail = (rowIdx, col) => {
+    state.selectedRowIdx = rowIdx;
+    state.selectedCol = col;
+    state.isEditingCell = false;
+    state.drawerOpen = true;
+    state.drawerTab = 'cell';
+    syncDrawer();
+    renderTableData();
+    setTimeout(() => { $('inspEditor').focus(); }, 20);
+  };
+
+  window.openCellCtx = (e, rowIdx, col) => {
+    e.preventDefault();
+    state.selectedRowIdx = rowIdx; state.selectedCol = col;
+    renderTableData();
+    const isDirty = state.stagedChanges.some(s => s.rowIdx === rowIdx && s.col === col && s.kind === 'update');
+    $('ctxRevertItem').classList.toggle('hidden', !isDirty);
+    const m = $('cellCtxMenu');
+    m.style.left = Math.min(e.clientX, window.innerWidth - 210) + 'px';
+    m.style.top = Math.min(e.clientY, window.innerHeight - 230) + 'px';
+    m.classList.add('open');
+  };
+
+  window.editCell = (td, rowIdx, col) => {
+    const tbl = getActiveTableObj();
+    const colDef = tbl.columns.find(c => c.name === col);
+    // For JSONB, open & focus the formatted right Inspector editor directly
+    if (colDef?.type === 'jsonb') {
+      state.selectedRowIdx = rowIdx; state.selectedCol = col;
+      state.drawerOpen = true; state.drawerTab = 'cell';
+      syncDrawer(); renderTableData();
+      setTimeout(() => { $('inspEditor').focus(); }, 20);
+      showToast('JSONB 已在右侧检视器中展开编辑');
+      return;
+    }
+
+    state.isEditingCell = true;
+    const cur = tbl.rows[rowIdx][col];
+    const curStr = cur === null || cur === undefined ? '' : String(cur);
+    td.classList.add('cell-editing');
+
+    // Type-aware dropdown for enum / plan columns
+    if (ENUM_OPTIONS[col]) {
+      const opts = ENUM_OPTIONS[col].map(o => `<option value="${o}" ${o === curStr ? 'selected' : ''}>${o}</option>`).join('');
+      td.innerHTML = `<div class="cell-editor-wrap"><select class="cell-select">${opts}</select></div>`;
+      const sel = td.querySelector('select');
+      sel.focus();
+      const finishSel = () => {
+        state.isEditingCell = false;
+        if (sel.value !== curStr) stageUpdate(rowIdx, col, cur, sel.value);
+        else renderTableData();
+      };
+      sel.onchange = finishSel;
+      sel.onblur = finishSel;
+      sel.onkeydown = (e) => { if (e.key === 'Escape') { state.isEditingCell = false; renderTableData(); } };
+      return;
+    }
+
+    // Standard flush inline text editor with quick NULL button + Tab/Enter flow
+    td.innerHTML = `<div class="cell-editor-wrap">
+      <input class="cell-input" value="${curStr.replace(/"/g, '&quot;')}" />
+      <button class="cell-null-btn" title="设为 NULL">NULL</button>
+    </div>`;
+    const inp = td.querySelector('input');
+    const nullBtn = td.querySelector('.cell-null-btn');
+    let committed = false;
+    inp.focus(); inp.select();
+
+    const saveAndClose = (nextMove) => {
+      if (committed) return;
+      committed = true;
+      state.isEditingCell = false;
+      if (inp.value !== curStr) stageUpdate(rowIdx, col, cur, inp.value);
+      else renderTableData();
+      if (nextMove) moveAndEdit(rowIdx, col, nextMove);
+    };
+
+    nullBtn.onmousedown = (e) => {
+      e.preventDefault();
+      committed = true;
+      state.isEditingCell = false;
+      stageUpdate(rowIdx, col, cur, null);
+    };
+    inp.onblur = () => saveAndClose(null);
+    inp.onkeydown = (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); saveAndClose('down'); }
+      else if (e.key === 'Tab') { e.preventDefault(); saveAndClose(e.shiftKey ? 'left' : 'right'); }
+      else if (e.key === 'Escape') { committed = true; state.isEditingCell = false; renderTableData(); }
+    };
+  };
+
+  function moveAndEdit(rowIdx, col, dir) {
+    const tbl = getActiveTableObj();
+    const cols = tbl.columns.filter(c => !state.hiddenCols.has(c.name)).map(c => c.name);
+    let r = rowIdx, ci = cols.indexOf(col);
+    if (dir === 'right' || dir === 'right_nav') { ci++; if (ci >= cols.length) { ci = 0; r = Math.min(tbl.rows.length - 1, r + 1); } }
+    if (dir === 'left' || dir === 'left_nav') { ci--; if (ci < 0) { ci = cols.length - 1; r = Math.max(0, r - 1); } }
+    if (dir === 'down') { r = Math.min(tbl.rows.length - 1, r + 1); }
+    if (dir === 'up') { r = Math.max(0, r - 1); }
+    state.selectedRowIdx = r; state.selectedCol = cols[ci];
+    renderTableData();
+    if (dir === 'right' || dir === 'left') {
+      const nextTd = document.querySelector(`td[data-r="${r}"][data-c="${cols[ci]}"]`);
+      if (nextTd) editCell(nextTd, r, cols[ci]);
+    }
+  }
+
+  function revertSingleCell(rowIdx, col) {
+    const idx = state.stagedChanges.findIndex(s => s.rowIdx === rowIdx && s.col === col && s.kind === 'update');
+    if (idx === -1) return;
+    const item = state.stagedChanges[idx];
+    getActiveTableObj().rows[rowIdx][col] = item.oldVal;
+    state.stagedChanges.splice(idx, 1);
+    renderTableData();
+    showToast('已撤销该单元格修改');
+  }
+
+  function undoLastStaged() {
+    if (!state.stagedChanges.length) return;
+    const last = state.stagedChanges.pop();
+    const tbl = getActiveTableObj();
+    if (last.kind === 'update' && tbl.rows[last.rowIdx]) tbl.rows[last.rowIdx][last.col] = last.oldVal;
+    else if (last.kind === 'delete') state.deletedRows.delete(last.rowIdx);
+    else if (last.kind === 'insert') { state.addedRows.delete(last.rowIdx); tbl.rows.splice(last.rowIdx, 1); }
+    renderTableData();
+    showToast('已撤销最近一次修改 (⌘Z)');
+  }
+
+  window.stageUpdate = function stageUpdate(rowIdx, col, oldVal, newVal) {
+    const tbl = getActiveTableObj();
+    const tName = 'public.' + (getActiveTab()?.table || 'users');
+    tbl.rows[rowIdx][col] = newVal;
+    const existing = state.stagedChanges.find(s => s.rowIdx === rowIdx && s.col === col && s.kind === 'update');
+    if (existing) {
+      if (existing.oldVal === newVal) state.stagedChanges = state.stagedChanges.filter(s => s !== existing);
+      else existing.newVal = newVal;
+    } else {
+      state.stagedChanges.push({ table: tName, rowIdx, col, oldVal, newVal, kind: 'update', id: tbl.rows[rowIdx].id });
+    }
+    renderTableData();
+  }
+
+  function updateStagedBar() {
+    const n = state.stagedChanges.length;
+    $('stagedCountText').textContent = `${n} 项待提交修改`;
+    $('stagedBar').classList.toggle('visible', n > 0);
+  }
+
+  // --- Structure View ---
+  function syncTableSubview() {
+    const tab = getActiveTab();
+    const isData = tab.subview !== 'structure';
+    document.querySelectorAll('[data-subview]').forEach(b => b.classList.toggle('active', b.dataset.subview === (isData ? 'data' : 'structure')));
+    $('dataGridWrap').classList.toggle('hidden', !isData);
+    $('dataGridFooter').classList.toggle('hidden', !isData);
+    $('whereWrap').style.visibility = isData ? 'visible' : 'hidden';
+    $('dataActions').style.visibility = isData ? 'visible' : 'hidden';
+    $('structureView').classList.toggle('hidden', isData);
+  }
+
+  function renderStructureContent() {
+    const tab = getActiveTab();
+    const tbl = getActiveTableObj();
+    const sTab = tab?.structTab || 'columns';
+    document.querySelectorAll('[data-struct]').forEach(b => b.classList.toggle('active', b.dataset.struct === sTab));
+    if (sTab === 'columns') {
+      $('structureContent').innerHTML = `<table class="data-grid"><thead><tr><th style="width:170px">字段名</th><th style="width:130px">数据类型</th><th style="width:85px">可空</th><th style="width:170px">默认值</th><th>备注</th></tr></thead><tbody>
+        ${tbl.columns.map(c => `<tr><td style="font-weight:600">${c.pk ? `<span class="pk-tag">${hgi('key', 12)}</span> ` : c.fk ? `<span class="fk-tag">${hgi('link-up', 12)}</span> ` : ''}${c.name}</td><td><span class="col-type">${c.type}</span></td><td>${c.nullable}</td><td style="color:var(--text-2)">${c.def}</td><td style="color:var(--text-3)">${c.comment || ''}</td></tr>`).join('')}
+      </tbody></table>`;
+    } else if (sTab === 'indexes') {
+      $('structureContent').innerHTML = `<table class="data-grid"><thead><tr><th>索引名</th><th>字段</th><th style="width:90px">类型</th><th style="width:80px">唯一</th><th style="width:90px">体积</th><th style="width:110px">扫描次数</th></tr></thead><tbody>
+        ${tbl.indexes.map(x => `<tr><td style="font-weight:600">${x.name}</td><td>${x.cols}</td><td><span class="col-type">${x.method}</span></td><td>${x.unique}</td><td>${x.size}</td><td style="color:var(--green)">${x.scans}</td></tr>`).join('')}
+      </tbody></table>`;
+    } else if (sTab === 'constraints') {
+      $('structureContent').innerHTML = `<table class="data-grid"><thead><tr><th style="width:200px">约束名</th><th style="width:130px">类型</th><th>定义</th></tr></thead><tbody>
+        ${tbl.constraints.map(x => `<tr><td style="font-weight:600">${x.name}</td><td><span class="col-type">${x.type}</span></td><td style="color:var(--text-2)">${x.def}</td></tr>`).join('')}
+      </tbody></table>`;
+    } else {
+      const ddl = `CREATE TABLE public.${tab.table} (\n${tbl.columns.map(c => `  ${c.name} ${c.type}${c.nullable === 'NO' ? ' NOT NULL' : ''}${c.def !== '-' ? ' DEFAULT ' + c.def : ''}`).join(',\n')}\n);\n\n${tbl.indexes.map(x => `CREATE ${x.unique === 'YES' ? 'UNIQUE ' : ''}INDEX ${x.name} ON public.${tab.table} USING ${x.method} (${x.cols});`).join('\n')}`;
+      $('structureContent').innerHTML = `<div style="padding:14px;"><pre class="code-block">${ddl}</pre></div>`;
+    }
+  }
+
+  // --- Inspector (Cell + Row Form) ---
+  function updateInspector() {
+    const tbl = getActiveTableObj();
+    const row = tbl.rows[state.selectedRowIdx];
+    const colDef = tbl.columns.find(c => c.name === state.selectedCol) || tbl.columns[0];
+    if (!row) return;
+    $('inspType').textContent = colDef.type;
+    $('inspColName').textContent = `${getActiveTab()?.table || 'users'}.${colDef.name} (row #${state.selectedRowIdx + 1})`;
+    let val = row[colDef.name];
+    if (val === null || val === undefined) val = 'NULL';
+    else if (colDef.type === 'jsonb') { try { val = JSON.stringify(JSON.parse(val), null, 2); } catch {} }
+    $('inspEditor').value = val;
+
+    // Row Vertical Form (with enum select + quick NULL + dirty indicator)
+    $('rowFormTitle').textContent = `${getActiveTab()?.table || 'users'} · 第 ${state.selectedRowIdx + 1} 行`;
+    $('rowFormFields').innerHTML = tbl.columns.map(c => {
+      const val = row[c.name];
+      const isNull = val === null || val === undefined;
+      const isDirty = state.stagedChanges.some(s => s.rowIdx === state.selectedRowIdx && s.col === c.name && s.kind === 'update');
+      const ctrl = ENUM_OPTIONS[c.name]
+        ? `<select data-rcol="${c.name}" style="padding:6px 9px;border-radius:var(--radius-sm);background:var(--panel-bg);border:1px solid ${isDirty ? 'var(--amber)' : 'var(--border)'};color:var(--text-1);font-family:var(--font-mono);font-size:12px;outline:none;">${ENUM_OPTIONS[c.name].map(o => `<option value="${o}" ${o === val ? 'selected' : ''}>${o}</option>`).join('')}</select>`
+        : `<input data-rcol="${c.name}" style="border-color:${isDirty ? 'var(--amber)' : 'var(--border)'}" placeholder="NULL" value="${isNull ? '' : String(val).replace(/"/g, '&quot;')}" />`;
+      return `
+      <div class="row-form-field">
+        <label>
+          <span>${isDirty ? '<span style="color:var(--amber)">●</span> ' : ''}${c.name}</span>
+          <span style="display:inline-flex;align-items:center;gap:6px;">
+            <span style="color:var(--text-3)">${c.type}</span>
+            <button type="button" class="cell-null-btn" onclick="stageUpdate(${state.selectedRowIdx}, '${c.name}', getActiveTableObj().rows[${state.selectedRowIdx}]['${c.name}'], null)">NULL</button>
+          </span>
+        </label>
+        ${ctrl}
+      </div>`;
+    }).join('');
+  }
+
+  $('formatJsonBtn').onclick = () => {
+    try { $('inspEditor').value = JSON.stringify(JSON.parse($('inspEditor').value), null, 2); showToast('JSON formatted'); }
+    catch { showToast('当前内容不是合法 JSON'); }
+  };
+  $('applyInspBtn').onclick = () => {
+    const tbl = getActiveTableObj();
+    const oldVal = tbl.rows[state.selectedRowIdx][state.selectedCol];
+    let next = $('inspEditor').value;
+    try { next = JSON.stringify(JSON.parse(next)); } catch {}
+    stageUpdate(state.selectedRowIdx, state.selectedCol, oldVal, next);
+    showToast('单元格修改已加入暂存区');
+  };
+  $('applyRowFormBtn').onclick = () => {
+    const tbl = getActiveTableObj();
+    let changed = 0;
+    document.querySelectorAll('#rowFormFields [data-rcol]').forEach(el => {
+      const col = el.dataset.rcol;
+      const oldVal = tbl.rows[state.selectedRowIdx][col];
+      const oldStr = oldVal === null || oldVal === undefined ? '' : String(oldVal);
+      if (el.value !== oldStr) { stageUpdate(state.selectedRowIdx, col, oldVal, el.value); changed++; }
+    });
+    showToast(changed ? `已暂存 ${changed} 个字段修改` : '当前行无变动');
+  };
+
+  // --- Monitor ---
+  const SESSIONS = [
+    { pid: 48210, user: 'app_api', state: 'active', dur: '1.8s', q: 'SELECT * FROM public.orders WHERE user_id = $1 ORDER BY created_at DESC' },
+    { pid: 48219, user: 'bi_worker', state: 'waiting', dur: '14.2s', q: 'REFRESH MATERIALIZED VIEW CONCURRENTLY analytics.daily_revenue_mv' },
+    { pid: 48224, user: 'velodb_mcp', state: 'idle', dur: '0.2s', q: 'SELECT table_name FROM information_schema.tables WHERE table_schema = $1' }
+  ];
+  function renderMonitor() {
+    $('activityTableBody').innerHTML = SESSIONS.map((s, idx) => `
+      <tr>
+        <td>${s.pid}</td><td>${s.user}</td>
+        <td><span class="badge-enum ${s.state}">● ${s.state}</span></td>
+        <td>${s.dur}</td><td title="${s.q}">${s.q}</td>
+        <td><button class="btn danger" style="height:22px;padding:0 7px;font-size:11px" onclick="showToast('已发送 pg_cancel_backend(${s.pid})')">终止</button></td>
+      </tr>
+    `).join('');
+  }
+
+  // --- SQL Workbench ---
+  function renderSqlResult() {
+    $('sqlResultGrid').innerHTML = `<table class="data-grid"><thead><tr><th>id</th><th>email</th><th>plan</th><th>total_orders</th><th>ltv_usd</th></tr></thead><tbody>
+      ${TABLES.users.rows.slice(0, 4).map((r, i) => `<tr><td>${r.id}</td><td>${r.email}</td><td>${r.plan}</td><td>${14 - i * 3}</td><td style="color:var(--green)">$${(2400 - i * 510).toFixed(2)}</td></tr>`).join('')}
+    </tbody></table>`;
+  }
+  function renderExplain() {
+    const rows = [
+      { depth: 0, op: 'Limit', info: '50 rows', rows: '4', pct: 100, time: '14.2 ms', warn: false },
+      { depth: 1, op: 'Sort', info: 'ltv_usd DESC · quicksort 26kB', rows: '4', pct: 92, time: '13.9 ms', warn: false },
+      { depth: 2, op: 'HashAggregate', info: 'Group By u.id', rows: '4', pct: 78, time: '11.4 ms', warn: false },
+      { depth: 3, op: 'Seq Scan on orders', info: 'Suggest index on orders(user_id)', rows: '192,000', pct: 69, time: '9.8 ms', warn: true }
+    ];
+    $('sqlExplainTree').innerHTML = `
+      <div class="exp-summary">
+        <span>总耗时：<strong>14.2 ms</strong> · 规划：0.4 ms · 缓存命中：142</span>
+        <span class="env-badge staging">1 处全表扫描</span>
+      </div>
+      <table class="exp-table">
+        <thead><tr><th>执行算子</th><th style="width:96px">实际行数</th><th style="width:136px">耗时</th></tr></thead>
+        <tbody>
+          ${rows.map(r => `
+            <tr class="${r.warn ? 'exp-warn' : ''}">
+              <td style="padding-left:${10 + r.depth * 18}px;">
+                <span style="color:var(--text-3);margin-right:4px;">${r.depth ? '└' : ''}</span>
+                <strong style="${r.warn ? 'color:var(--amber)' : ''}">${r.op}</strong>
+                <span style="color:var(--text-3);font-size:11px;margin-left:8px;">${r.info}</span>
+              </td>
+              <td>${r.rows}</td>
+              <td><span class="exp-bar-mini"><i style="width:${r.pct}%"></i></span>${r.time}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>`;
+  }
+  function renderSqlMessages() {
+    $('sqlMessages').innerHTML = `<div class="code-block">[15:24:11] Connected to velodb_prod_us_east (PostgreSQL 16.4)\n[15:24:12] Executing statement (12 lines)...\n[15:24:12] ✓ Query returned 4 rows in 14.2 ms.</div>`;
+  }
+  function renderSqlHistory() {
+    const hist = [
+      { t: '15:22', ms: '14.2 ms', q: 'SELECT u.id, u.email, COUNT(o.id) FROM users u LEFT JOIN orders o ...' },
+      { t: '15:08', ms: '4.1 ms', q: "SELECT pid, state, query FROM pg_stat_activity WHERE state != 'idle';" },
+      { t: '14:40', ms: '38.7 ms', q: "SELECT * FROM public.events WHERE payload->>'event' = 'checkout';" }
+    ];
+    $('sqlHistoryList').innerHTML = hist.map(h => `
+      <div class="explain-node" style="cursor:pointer" onclick="$('sqlTextarea').value='${h.q}'; syncSqlEditor(); showToast('已载入历史 SQL')">
+        <div class="explain-top"><span style="font-family:var(--font-mono);font-size:12px;">${h.q}</span><span class="col-type">${h.ms}</span></div>
+        <div style="font-size:11px; color:var(--text-3);">Executed at ${h.t}</div>
+      </div>`).join('');
+  }
+
+  // --- Staged SQL & Actions ---
+  function generateStagedSql() {
+    const lines = ['BEGIN;'];
+    state.stagedChanges.forEach(s => {
+      if (s.kind === 'update') lines.push(`UPDATE ${s.table} SET ${s.col} = ${s.newVal === null ? 'NULL' : "'" + s.newVal + "'"} WHERE id = '${s.id}';`);
+      else if (s.kind === 'insert') lines.push(`INSERT INTO ${s.table} (email, plan, status) VALUES ('new_user@velodb.dev', 'pro', 'active');`);
+      else if (s.kind === 'delete') lines.push(`DELETE FROM ${s.table} WHERE id = '${s.id}';`);
+    });
+    lines.push('COMMIT;');
+    return lines.join('\n');
+  }
+  $('previewSqlBtn').onclick = () => {
+    $('previewSqlCode').textContent = generateStagedSql();
+    $('prodWarnBanner').style.display = (state.safeMode && state.conn.env === 'prod') ? 'block' : 'none';
+    $('sqlPreviewModal').classList.add('open');
+  };
+  $('commitBtn').onclick = () => (state.safeMode && state.conn.env === 'prod') ? $('previewSqlBtn').click() : executeCommit();
+  $('confirmCommitBtn').onclick = executeCommit;
+  function executeCommit() {
+    state.stagedChanges = []; state.addedRows.clear(); state.deletedRows.clear();
+    closeModals(); renderTableData(); showToast('✓ Transaction COMMIT succeeded (9.1 ms)');
+  }
+  $('discardBtn').onclick = () => { state.stagedChanges = []; state.addedRows.clear(); state.deletedRows.clear(); renderTableData(); showToast('已丢弃暂存修改'); };
+
+  $('addRowBtn').onclick = () => {
+    const tbl = getActiveTableObj();
+    const idx = tbl.rows.length;
+    tbl.rows.push({ id: 'new-' + Math.random().toString(16).slice(2, 10), email: 'new_user@velodb.dev', plan: 'pro', status: 'active', metadata: '{}', created_at: 'now()' });
+    state.addedRows.add(idx); state.stagedChanges.push({ table: 'public.' + getActiveTab().table, rowIdx: idx, kind: 'insert' });
+    state.selectedRowIdx = idx; renderTableData();
+  };
+  $('delRowBtn').onclick = () => {
+    const tbl = getActiveTableObj();
+    const targets = state.checkedRows.size > 0 ? [...state.checkedRows] : [state.selectedRowIdx];
+    targets.forEach(i => {
+      if (!state.deletedRows.has(i) && tbl.rows[i]) {
+        state.deletedRows.add(i);
+        state.stagedChanges.push({ table: 'public.' + getActiveTab().table, rowIdx: i, kind: 'delete', id: tbl.rows[i].id });
+      }
+    });
+    state.checkedRows.clear();
+    renderTableData();
+    showToast(`已标记删除 ${targets.length} 行`);
+  };
+
+  // --- Context Menu Actions ---
+  document.querySelectorAll('#cellCtxMenu .ctx-item').forEach(el => {
+    el.onclick = () => {
+      const act = el.dataset.ctx, tbl = getActiveTableObj(), row = tbl.rows[state.selectedRowIdx];
+      if (act === 'copy') { navigator.clipboard?.writeText(String(row[state.selectedCol] ?? 'NULL')); showToast('已复制单元格值'); }
+      if (act === 'copyJson') { navigator.clipboard?.writeText(JSON.stringify(row, null, 2)); showToast('已复制整行 JSON'); }
+      if (act === 'copyInsert') { showToast('已复制 SQL INSERT 语句'); }
+      if (act === 'setNull') { stageUpdate(state.selectedRowIdx, state.selectedCol, row[state.selectedCol], null); }
+      if (act === 'revertCell') { revertSingleCell(state.selectedRowIdx, state.selectedCol); }
+      if (act === 'cloneRow') { $('addRowBtn').click(); }
+      if (act === 'deleteRow') { $('delRowBtn').click(); }
+      $('cellCtxMenu').classList.remove('open');
+    };
+  });
+
+  // --- Modals & Palette ---
+  const COMMANDS = [
+    { label: '数据表：public.users', tag: '跳转', action: () => openTableTab('users') },
+    { label: '数据表：public.orders', tag: '跳转', action: () => openTableTab('orders') },
+    { label: '打开实时监控 (pg_stat_activity)', tag: '监控', action: () => openMonitorTab() },
+    { label: '新建 SQL 查询标签页', tag: '查询', action: () => addSqlTab() },
+    { label: '查看本地 MCP 服务配置', tag: 'MCP', action: () => $('mcpBtn').click() },
+    { label: '打开偏好设置 (⌘,)', tag: '设置', action: () => openSettingsModal('general') },
+    { label: '新建 PostgreSQL 连接...', tag: '连接', action: () => openNewConnModal() },
+    { label: '断开连接并返回首页', tag: '视图', action: () => setConnected(false) },
+    { label: '切换深色 / 浅色 / 跟随系统主题', tag: '外观', action: () => { const order = ['system','light','dark']; const next = order[(order.indexOf(state.settings.theme) + 1) % 3]; setSetting('theme', next); showToast('主题已切换：' + (next==='system'?'跟随系统':next==='light'?'浅色':'深色')); } },
+    { label: '导出当前表数据 (CSV / JSON / SQL)', tag: '导出', action: () => openExportModal(false) }
+  ];
+  function openCmdPalette() {
+    $('cmdModal').classList.add('open'); $('cmdSearchInput').value = ''; renderCmdList('');
+    setTimeout(() => $('cmdSearchInput').focus(), 20);
+  }
+  function renderCmdList(q) {
+    const list = COMMANDS.filter(c => c.label.toLowerCase().includes(q.toLowerCase()));
+    $('cmdList').innerHTML = list.map((c, idx) => `<div class="cmd-item ${idx === 0 ? 'selected' : ''}" onclick="runCmd(${idx}, '${q}')"><span>${c.label}</span><span class="kbd">${c.tag}</span></div>`).join('');
+  }
+  window.runCmd = (idx, q) => { const list = COMMANDS.filter(c => c.label.toLowerCase().includes(q.toLowerCase())); closeModals(); list[idx]?.action(); };
+  $('openCmdBtn').onclick = openCmdPalette;
+  $('cmdSearchInput').oninput = (e) => renderCmdList(e.target.value);
+
+  function openConnModal() {
+    $('connListBody').innerHTML = CONNECTIONS.map(c => {
+      const drv = getDriver(c.driver);
+      return `
+      <div class="tree-item ${state.conn.id === c.id ? 'active' : ''}" style="padding:10px 12px; border:1px solid var(--border); border-radius:var(--radius-md);" onclick="selectConn('${c.id}')">
+        <span style="width:28px;height:28px;border-radius:7px;background:${c.color};color:#fff;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;">${drv.svg(16, true)}</span>
+        <div style="flex:1"><div style="font-weight:600; color:var(--text-1)">${c.name}</div><div style="font-size:11px; color:var(--text-3); font-family:var(--font-mono)">${drv.name} · ${c.host}${c.ssh ? ' · SSH' : ''}</div></div>
+        <span class="env-badge" style="background:${hexToRgba(c.color, 0.14)};color:${c.color};">${c.label}</span>
+      </div>`;
+    }).join('') + `
+      <div style="border-top:1px solid var(--border); padding-top:10px; display:flex; justify-content:space-between; align-items:center;">
+        <span style="font-size:11.5px; color:var(--text-3);">断开当前连接以返回首页连接列表</span>
+        <button class="btn danger" onclick="closeModals(); setConnected(false);">断开连接</button>
+      </div>`;
+    $('connModal').classList.add('open');
+  }
+
+  function renderDriverGrid() {
+    $('dbDriverGrid').innerHTML = DB_DRIVERS.map(d => `
+      <div class="db-driver-card" onclick="pickDriver('${d.id}')">
+        <div class="db-driver-logo">${d.svg(26, false)}</div>
+        <div class="db-driver-name">${d.name}</div>
+        <div class="db-driver-sub">${d.isFile ? '本地文件' : '端口 ' + d.port}</div>
+      </div>`).join('');
+  }
+
+  window.showConnStep = (step) => {
+    const isStep1 = step === 1;
+    $('ncStep1').classList.toggle('hidden', !isStep1);
+    $('ncStep2').classList.toggle('hidden', isStep1);
+    $('ncStep2Footer').classList.toggle('hidden', isStep1);
+    $('ncBackBtn').classList.toggle('hidden', isStep1);
+    $('ncPreviewIcon').classList.toggle('hidden', isStep1);
+    if (isStep1) {
+      $('ncModalTitle').textContent = '选择数据库类型';
+      renderDriverGrid();
+    }
+  };
+
+  window.pickDriver = (driverId) => {
+    ncSelectedDriver = driverId;
+    const drv = getDriver(driverId);
+    $('ncModalTitle').textContent = `新建 ${drv.name} 连接`;
+    $('ncPreviewIcon').innerHTML = drv.svg(15, true);
+    $('ncUriInput').placeholder = drv.uri;
+    $('ncPort').value = drv.port;
+    $('ncDb').value = drv.defaultDb;
+    $('ncDbLabel').textContent = driverId === 'redis' ? 'Database 编号' : '数据库名';
+    $('ncSqliteRow').classList.toggle('hidden', !drv.isFile);
+    $('ncNetworkFields').classList.toggle('hidden', !!drv.isFile);
+    $('ncSshBox').classList.toggle('hidden', !!drv.isFile);
+    $('ncUriRow').classList.toggle('hidden', !!drv.isFile);
+    showConnStep(2);
+  };
+
+  window.openNewConnModal = () => {
+    closeModals();
+    showConnStep(1);
+    $('newConnModal').classList.add('open');
+  };
+
+  function setNcColor(hex) {
+    ncSelectedColor = hex;
+    $('ncColorPicker').value = hex;
+    $('ncPreviewIcon').style.background = hex;
+    $('ncCustomDot').style.background = hex;
+    $('ncColorHex').textContent = hex.toUpperCase();
+    document.querySelectorAll('#ncColorSwatches .swatch').forEach(el => el.classList.toggle('active', el.dataset.color.toLowerCase() === hex.toLowerCase()));
+  }
+  document.querySelectorAll('#ncColorSwatches .swatch').forEach(el => el.onclick = () => setNcColor(el.dataset.color));
+  $('ncColorPicker').oninput = (e) => setNcColor(e.target.value);
+
+  $('saveNewConnBtn').onclick = () => {
+    const drv = getDriver(ncSelectedDriver);
+    const name = $('ncName').value.trim() || `new_${drv.id}_conn`;
+    const label = $('ncTag').value.trim() || '自定义';
+    const host = drv.isFile
+      ? ($('ncSqlitePath').value.trim() || 'app.sqlite3')
+      : `${$('ncHost').value.trim() || 'localhost'}:${$('ncPort').value.trim() || drv.port}/${$('ncDb').value.trim() || drv.defaultDb}`;
+    const ssh = (!drv.isFile && $('ncSshToggle').checked) ? ($('ncSshHost').value.trim() || 'bastion') : '';
+    const nc = { id: 'c-' + Date.now(), driver: ncSelectedDriver, name, host, env: 'custom', label, color: ncSelectedColor, ssh };
+    CONNECTIONS.unshift(nc);
+    selectConn(nc.id);
+  };
+  window.selectConn = (id) => {
+    state.conn = CONNECTIONS.find(c => c.id === id) || CONNECTIONS[0];
+    $('connName').textContent = state.conn.name;
+    $('envDot').className = 'env-dot';
+    $('envDot').style.background = state.conn.color;
+    $('envDot').style.boxShadow = `0 0 6px ${state.conn.color}`;
+    $('envBadge').className = 'env-badge';
+    $('envBadge').style.background = hexToRgba(state.conn.color, 0.14);
+    $('envBadge').style.color = state.conn.color;
+    $('envBadge').textContent = state.conn.label;
+    setConnected(true);
+    closeModals(); showToast(`已连接至 ${state.conn.name}`);
+  };
+
+  function renderLauncher() {
+    const hasConns = CONNECTIONS.length > 0;
+    $('launcherConnSection').classList.toggle('hidden', !hasConns);
+    $('launcherZeroSection').classList.toggle('hidden', hasConns);
+    $('launcherTitle').textContent = hasConns ? 'VeloDB' : '连接到 PostgreSQL';
+    $('launcherSub').textContent = hasConns
+      ? '选择一个已保存的 PostgreSQL 连接，或新建连接开始工作。'
+      : '尚未添加任何数据库连接。新建连接或直接粘贴 PostgreSQL URI 即可开始浏览与查询。';
+
+    if (hasConns) {
+      $('launcherConnList').innerHTML = CONNECTIONS.map(c => {
+        const drv = getDriver(c.driver);
+        return `
+        <div class="conn-card" onclick="selectConn('${c.id}')">
+          <div class="conn-card-icon" style="background:${c.color}; color:#fff; box-shadow:inset 0 1px 0 rgba(255,255,255,0.28), 0 3px 8px ${hexToRgba(c.color, 0.28)};">${drv.svg(20, true)}</div>
+          <div class="conn-card-info">
+            <div class="conn-card-name">
+              <span>${c.name}</span>
+              <span class="env-badge" style="background:${hexToRgba(c.color, 0.13)}; color:${c.color};">${c.label}</span>
+              <span class="col-type">${drv.name}</span>
+              ${c.ssh ? `<span class="col-type">SSH</span>` : ''}
+            </div>
+            <div class="conn-card-host">${c.host}</div>
+          </div>
+          <button class="icon-btn" title="删除连接" onclick="event.stopPropagation(); removeConn('${c.id}')">${hgi('trash', 13)}</button>
+          <span style="color:var(--text-3)">${hgi('arrow-right', 14)}</span>
+        </div>`;
+      }).join('');
+    }
+  }
+
+  window.removeConn = (id) => {
+    CONNECTIONS = CONNECTIONS.filter(c => c.id !== id);
+    renderLauncher();
+  };
+  window.clearAllConnsForEmptyPreview = () => {
+    CONNECTIONS = [];
+    renderLauncher();
+  };
+  window.restoreSampleConns = () => {
+    CONNECTIONS = [...DEFAULT_CONNECTIONS];
+    renderLauncher();
+  };
+
+  window.setConnected = (connected) => {
+    state.isConnected = connected;
+    $('emptyStateView').classList.toggle('hidden', connected);
+    $('mainWorkspace').classList.toggle('hidden', !connected);
+    $('toggleSidebarBtn').classList.toggle('hidden', !connected);
+    $('connPillBtn').classList.toggle('hidden', !connected);
+    $('openMonitorBtn').classList.toggle('hidden', !connected);
+    $('toggleInspectorBtn').classList.toggle('hidden', !connected);
+    document.querySelector('.titlebar-right .tb-sep')?.classList.toggle('hidden', !connected);
+    document.querySelector('.statusbar')?.classList.toggle('hidden', !connected);
+    $('statusRows').textContent = connected ? `public.${getActiveTab()?.table || 'users'}` : '未连接';
+    applyConnectionAccent(connected && state.conn ? state.conn.color : null);
+    if (!connected) renderLauncher();
+  };
+
+  window.enterWorkspaceWithDemo = () => {
+    setConnected(true);
+    showToast(`已连接示例库 ${state.conn.name}`);
+  };
+
+  $('quickUriConnectBtn').onclick = () => {
+    const uri = $('quickUriInput').value.trim() || 'localhost:5432/postgres';
+    setConnected(true);
+    showToast(`已连接至 ${uri.replace(/^postgresql:\/\//, '')}`);
+  };
+  $('quickUriInput').onkeydown = (e) => { if (e.key === 'Enter') $('quickUriConnectBtn').click(); };
+  $('connPillBtn').onclick = openConnModal;
+  $('openMonitorBtn').onclick = openMonitorTab;
+  $('mcpBtn').onclick = () => $('mcpModal').classList.add('open');
+
+  $('colsPickerBtn').onclick = () => {
+    const tbl = getActiveTableObj();
+    $('colsChecklist').innerHTML = tbl.columns.map(c => `
+      <label style="display:flex; align-items:center; gap:8px; font-family:var(--font-mono); font-size:12px; cursor:pointer;">
+        <input type="checkbox" ${!state.hiddenCols.has(c.name) ? 'checked' : ''} onchange="toggleColVis('${c.name}', this.checked)" />
+        <span>${c.name}</span><span class="col-type" style="margin-left:auto">${c.type}</span>
+      </label>`).join('');
+    $('colsModal').classList.add('open');
+  };
+  window.toggleColVis = (name, checked) => { if (checked) state.hiddenCols.delete(name); else state.hiddenCols.add(name); renderTableData(); };
+
+  function openExportModal(isImport) {
+    $('ioModalTitle').textContent = isImport ? '导入 CSV / JSON 到数据表' : '导出表数据';
+    $('exportBody').classList.toggle('hidden', isImport);
+    $('importBody').classList.toggle('hidden', !isImport);
+    $('copyExportBtn').classList.toggle('hidden', isImport);
+    if (!isImport) renderExportPreview();
+    $('exportModal').classList.add('open');
+  }
+  function renderExportPreview() {
+    const rows = getActiveTableObj().rows.slice(0, 3);
+    if (state.exportFmt === 'json') $('exportPreviewCode').textContent = JSON.stringify(rows, null, 2);
+    else if (state.exportFmt === 'sql') $('exportPreviewCode').textContent = rows.map(r => `INSERT INTO public.${getActiveTab().table} VALUES (${Object.values(r).map(v => v === null ? 'NULL' : "'" + v + "'").join(', ')});`).join('\n');
+    else $('exportPreviewCode').textContent = [Object.keys(rows[0]).join(','), ...rows.map(r => Object.values(r).join(','))].join('\n');
+  }
+  $('exportBtn').onclick = () => openExportModal(false);
+  $('importBtn').onclick = () => openExportModal(true);
+  $('copyExportBtn').onclick = () => { navigator.clipboard?.writeText($('exportPreviewCode').textContent); closeModals(); showToast('已复制导出内容'); };
+
+  // --- Bindings ---
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    if (state.settings.theme === 'system') applySettings();
+  });
+  $('safeModeBtn').onclick = () => {
+    state.safeMode = !state.safeMode;
+    $('safeModeBtn').classList.toggle('safe-on', state.safeMode);
+    $('safeModeBtn').innerHTML = state.safeMode ? `${hgi('shield-check', 12)} 安全模式` : `${hgi('alert', 12)} 直连模式`;
+    showToast(state.safeMode ? 'Safe Mode 已开启' : '已切换为直接执行模式');
+  };
+  $('toggleSidebarBtn').onclick = () => {
+    const sb = document.querySelector('.sidebar');
+    sb.classList.toggle('hidden');
+    $('toggleSidebarBtn').classList.toggle('active', !sb.classList.contains('hidden'));
+  };
+  $('toggleInspectorBtn').onclick = () => { state.drawerOpen = !state.drawerOpen; syncDrawer(); };
+  $('closeDrawerBtn').onclick = () => { state.drawerOpen = false; syncDrawer(); };
+  function syncDrawer() {
+    $('rightDrawer').classList.toggle('hidden', !state.drawerOpen);
+    $('cellInspectorBody').classList.toggle('hidden', state.drawerTab !== 'cell');
+    $('rowInspectorBody').classList.toggle('hidden', state.drawerTab !== 'row');
+    $('toggleInspectorBtn').classList.toggle('active', state.drawerOpen);
+    document.querySelectorAll('[data-drawer]').forEach(b => b.classList.toggle('active', b.dataset.drawer === state.drawerTab));
+  }
+  document.querySelectorAll('[data-drawer]').forEach(b => b.onclick = () => { state.drawerTab = b.dataset.drawer; syncDrawer(); });
+  document.querySelectorAll('[data-subview]').forEach(b => b.onclick = () => { getActiveTab().subview = b.dataset.subview; syncTableSubview(); renderStructureContent(); });
+  document.querySelectorAll('[data-struct]').forEach(b => b.onclick = () => { getActiveTab().structTab = b.dataset.struct; renderStructureContent(); });
+  document.querySelectorAll('[data-sqlres]').forEach(b => b.onclick = () => {
+    document.querySelectorAll('[data-sqlres]').forEach(x => x.classList.remove('active')); b.classList.add('active');
+    const v = b.dataset.sqlres;
+    $('sqlResultGrid').classList.toggle('hidden', v !== 'result');
+    $('sqlExplainTree').classList.toggle('hidden', v !== 'explain');
+    $('sqlMessages').classList.toggle('hidden', v !== 'messages');
+    $('sqlHistoryList').classList.toggle('hidden', v !== 'history');
+  });
+  document.querySelectorAll('[data-expfmt]').forEach(b => b.onclick = () => {
+    document.querySelectorAll('[data-expfmt]').forEach(x => x.classList.remove('active')); b.classList.add('active');
+    state.exportFmt = b.dataset.expfmt; renderExportPreview();
+  });
+  // --- SQL Syntax Highlighting & Snippets Management ---
+  let SNIPPETS = [
+    { id: 'ltv', name: 'Top LTV Users', sql: "SELECT\n  u.id,\n  u.email,\n  COUNT(o.id) AS orders,\n  SUM(o.amount_cents) / 100.0 AS ltv_usd\nFROM public.users u\nLEFT JOIN public.orders o ON o.user_id = u.id\nGROUP BY 1, 2\nORDER BY ltv_usd DESC\nLIMIT 50;" },
+    { id: 'slow', name: 'Slow Join Explain', sql: "EXPLAIN (ANALYZE, BUFFERS)\nSELECT *\nFROM public.orders o\nJOIN public.users u ON u.id = o.user_id\nWHERE o.amount_cents > 5000;" },
+    { id: 'locks', name: 'Active Sessions & Locks', sql: "SELECT pid, usename, state, wait_event_type, LEFT(query, 80) AS query\nFROM pg_stat_activity\nWHERE state != 'idle'\nORDER BY query_start;" },
+    { id: 'jsonb', name: 'JSONB Filter', sql: "SELECT id, email, metadata->>'org' AS org\nFROM public.users\nWHERE metadata @> '{\"sso\": true}'::jsonb;" }
+  ];
+
+  function highlightSql(code) {
+    let esc = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const tokens = [];
+    esc = esc.replace(/(--[^\n]*|'[^']*')/g, (m) => {
+      const cls = m.startsWith('--') ? 'sql-cmt' : 'sql-str';
+      tokens.push(`<span class="${cls}">${m}</span>`);
+      return `__TOK${tokens.length - 1}__`;
+    });
+    esc = esc.replace(/\b(SELECT|FROM|WHERE|LEFT|RIGHT|INNER|OUTER|JOIN|ON|GROUP|BY|ORDER|DESC|ASC|LIMIT|OFFSET|AS|AND|OR|NOT|IN|IS|NULL|EXPLAIN|ANALYZE|BUFFERS|CREATE|INDEX|CONCURRENTLY|INSERT|INTO|VALUES|UPDATE|SET|DELETE|BEGIN|COMMIT)\b/gi, '<span class="sql-kw">$1</span>');
+    esc = esc.replace(/\b(COUNT|COALESCE|SUM|AVG|MIN|MAX|NOW|LEFT|LOWER|UPPER)\b(?=\s*\()/gi, '<span class="sql-fn">$1</span>');
+    esc = esc.replace(/\b(\d+(?:\.\d+)?)\b/g, '<span class="sql-num">$1</span>');
+    esc = esc.replace(/__TOK(\d+)__/g, (_, i) => tokens[Number(i)]);
+    return esc + '\n';
+  }
+
+  function syncSqlEditor() {
+    const ta = $('sqlTextarea');
+    $('sqlHighlight').innerHTML = highlightSql(ta.value);
+    const lines = ta.value.split('\n').length;
+    $('sqlGutter').innerHTML = Array.from({ length: Math.max(lines, 1) }, (_, i) => i + 1).join('<br>');
+  }
+  $('sqlTextarea').addEventListener('input', syncSqlEditor);
+  $('sqlTextarea').addEventListener('scroll', () => {
+    $('sqlHighlight').scrollTop = $('sqlTextarea').scrollTop;
+    $('sqlHighlight').scrollLeft = $('sqlTextarea').scrollLeft;
+    $('sqlGutter').scrollTop = $('sqlTextarea').scrollTop;
+  });
+
+  function renderSnippetsMenu() {
+    $('snippetsMenu').innerHTML = SNIPPETS.map(s => `
+      <div class="snip-item" onclick="loadSnippet('${s.id}')">
+        <div class="snip-name"><span>${s.name}</span></div>
+        <div class="snip-preview">${s.sql.replace(/\s+/g, ' ')}</div>
+      </div>`).join('') + `
+      <div class="ctx-sep"></div>
+      <div class="ctx-item" onclick="openSnippetsModal()"><span>管理代码片段...</span><span class="kbd">${SNIPPETS.length}</span></div>`;
+  }
+
+  window.loadSnippet = (id) => {
+    const s = SNIPPETS.find(x => x.id === id);
+    if (!s) return;
+    $('sqlTextarea').value = s.sql;
+    syncSqlEditor();
+    $('snippetsMenu').classList.remove('open');
+    showToast(`已载入片段：${s.name}`);
+  };
+
+  window.openSnippetsModal = () => {
+    $('snippetsMenu').classList.remove('open');
+    renderSnippetsManager();
+    $('snippetsModal').classList.add('open');
+    setTimeout(() => $('newSnipName').focus(), 20);
+  };
+
+  function renderSnippetsManager() {
+    $('snipManagerList').innerHTML = SNIPPETS.map(s => `
+      <div style="display:flex; align-items:center; gap:8px; padding:8px 10px; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--surface-1);">
+        <div style="flex:1; min-width:0; cursor:pointer;" onclick="loadSnippet('${s.id}'); closeModals();">
+          <div style="font-size:12.5px; font-weight:600; color:var(--text-1);">${s.name}</div>
+          <div style="font-size:11px; color:var(--text-3); font-family:var(--font-mono); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${s.sql.replace(/\s+/g, ' ')}</div>
+        </div>
+        <button class="btn" style="height:24px;padding:0 8px;font-size:11px;" onclick="loadSnippet('${s.id}'); closeModals();">载入</button>
+        <button class="icon-btn" style="height:24px;min-width:24px;color:var(--red);" onclick="deleteSnippet('${s.id}')">${hgi('trash', 13)}</button>
+      </div>`).join('') || `<div style="padding:14px; text-align:center; color:var(--text-3); font-size:12px;">暂无保存的片段</div>`;
+  }
+
+  window.deleteSnippet = (id) => {
+    SNIPPETS = SNIPPETS.filter(s => s.id !== id);
+    renderSnippetsMenu();
+    renderSnippetsManager();
+  };
+
+  $('snippetsDropBtn').onclick = (e) => {
+    e.stopPropagation();
+    renderSnippetsMenu();
+    $('snippetsMenu').classList.toggle('open');
+  };
+  $('saveSnippetBtn').onclick = () => openSnippetsModal();
+  $('confirmSaveSnipBtn').onclick = () => {
+    const name = $('newSnipName').value.trim();
+    const sql = $('sqlTextarea').value.trim();
+    if (!name || !sql) { showToast('请输入片段名称'); return; }
+    SNIPPETS.unshift({ id: 'snip-' + Date.now(), name, sql });
+    $('newSnipName').value = '';
+    renderSnippetsMenu();
+    renderSnippetsManager();
+    showToast(`已保存片段：${name}`);
+  };
+
+  $('runSqlBtn').onclick = () => { document.querySelector('[data-sqlres="result"]').click(); $('sqlTiming').textContent = `${(7 + Math.random() * 11).toFixed(1)} ms · 4 行`; showToast('Query executed'); };
+  $('formatSqlBtn').onclick = () => showToast('SQL 已格式化 (sqlparser)');
+
+  $('schemaSelect').onchange = (e) => { state.schema = e.target.value; renderSidebar(); };
+  $('tableFilterInput').oninput = renderSidebar;
+  $('applyWhereBtn').onclick = () => { state.whereFilter = $('whereInput').value.trim(); renderTableData(); };
+  $('whereInput').onkeydown = (e) => { if (e.key === 'Enter') $('applyWhereBtn').click(); };
+
+  document.querySelectorAll('.modal-backdrop').forEach(m => m.onclick = (e) => { if (e.target === m) closeModals(); });
+  document.addEventListener('click', () => { $('cellCtxMenu').classList.remove('open'); $('snippetsMenu').classList.remove('open'); });
+  window.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); openCmdPalette(); return; }
+    if ((e.metaKey || e.ctrlKey) && e.key === ',') { e.preventDefault(); openSettingsModal(); return; }
+    if (e.key === 'Escape') { closeModals(); return; }
+
+    // Grid keyboard navigation & editing shortcuts (when not typing in an input/textarea/select)
+    const tag = document.activeElement?.tagName;
+    const inInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+    const isTableActive = state.isConnected && getActiveTab()?.type === 'table' && getActiveTab()?.subview !== 'structure';
+    if (!inInput && isTableActive && !state.isEditingCell) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undoLastStaged(); return; }
+      if (e.key === 'ArrowRight') { e.preventDefault(); moveAndEdit(state.selectedRowIdx, state.selectedCol, 'right_nav'); }
+      else if (e.key === 'ArrowLeft') { e.preventDefault(); moveAndEdit(state.selectedRowIdx, state.selectedCol, 'left_nav'); }
+      else if (e.key === 'ArrowDown') { e.preventDefault(); moveAndEdit(state.selectedRowIdx, state.selectedCol, 'down'); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); moveAndEdit(state.selectedRowIdx, state.selectedCol, 'up'); }
+      else if (e.key === 'Enter' || e.key === 'F2') {
+        e.preventDefault();
+        const td = document.querySelector(`td[data-r="${state.selectedRowIdx}"][data-c="${state.selectedCol}"]`);
+        if (td) editCell(td, state.selectedRowIdx, state.selectedCol);
+      }
+      else if (e.key === 'Backspace' || e.key === 'Delete') {
+        e.preventDefault();
+        const cur = getActiveTableObj().rows[state.selectedRowIdx]?.[state.selectedCol];
+        if (cur !== null) stageUpdate(state.selectedRowIdx, state.selectedCol, cur, null);
+      }
+    }
+  });
+
+  // --- Settings Modal Logic ---
+  const SETTING_META = {
+    general: ['常规与外观', '主题、字体、毛玻璃与界面密度（调整后实时生效）'],
+    grid: ['数据网格与格式', '表格默认分页、NULL 展示、时区与数值格式化'],
+    editor: ['SQL 编辑器', '代码字号、行号、缩进与执行行为'],
+    safety: ['安全与查询', '安全模式策略、生产库保护与超时控制'],
+    keys: ['快捷键', '快捷键方案、Vim 模式与常用快捷键一览'],
+    mcp: ['MCP 服务', '本地 MCP 服务端开关、只读安全锁与暴露工具'],
+    advanced: ['高级与配置', '导出 settings.toml、重置偏好与清理本地缓存']
+  };
+
+  function toggleHtml(key, checked) {
+    return `<label class="switch"><input type="checkbox" ${checked ? 'checked' : ''} onchange="setSetting('${key}', this.checked)"><span class="slider"></span></label>`;
+  }
+
+  window.openSettingsModal = (cat) => {
+    if (cat) state.settingsCat = cat;
+    closeModals();
+    $('settingsModal').classList.add('open');
+    renderSettingsPanel();
+  };
+  $('openSettingsBtn').onclick = () => openSettingsModal();
+
+  document.querySelectorAll('[data-scat]').forEach(btn => {
+    btn.onclick = () => { state.settingsCat = btn.dataset.scat; renderSettingsPanel(); };
+  });
+
+  window.setSetting = (key, val) => {
+    if (key === 'safeMode') {
+      state.safeMode = val;
+      $('safeModeBtn').classList.toggle('safe-on', state.safeMode);
+      $('safeModeBtn').innerHTML = state.safeMode ? `${hgi('shield-check', 12)} 安全模式` : `${hgi('alert', 12)} 直连模式`;
+    } else {
+      state.settings[key] = val;
+    }
+    applySettings();
+    if (state.settingsCat === 'advanced') renderSettingsPanel();
+  };
+
+  function resolveTheme(mode) {
+    if (mode === 'system') return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    return mode;
+  }
+
+  function applySettings() {
+    const s = state.settings;
+    state.theme = resolveTheme(s.theme);
+    document.documentElement.setAttribute('data-theme', state.theme);
+    document.documentElement.classList.toggle('no-vibrancy', !s.vibrancy);
+    document.documentElement.style.setProperty('--font-mono', s.fontFamily);
+    document.documentElement.style.setProperty('--grid-font-size', s.gridFontSize + 'px');
+    document.documentElement.style.setProperty('--editor-font-size', s.editorFontSize + 'px');
+    const py = s.rowDensity === 'compact' ? '3.5px' : s.rowDensity === 'spacious' ? '9.5px' : '6px';
+    document.documentElement.style.setProperty('--grid-cell-py', py);
+    $('sqlGutter').classList.toggle('hidden', !s.showLineNumbers);
+    $('mcpBtn').classList.toggle('mcp-on', s.mcpEnabled);
+    $('mcpBtn').innerHTML = s.mcpEnabled ? (s.mcpReadOnly ? `${hgi('plug', 12)} MCP: 只读` : `${hgi('plug', 12)} MCP: 读写`) : `${hgi('plug', 12)} MCP: 已关闭`;
+    applyConnectionAccent(state.isConnected && state.conn ? state.conn.color : null);
+    if (getActiveTab()?.type === 'table') renderTableData();
+  }
+
+  function buildSettingsToml() {
+    const s = state.settings;
+    return `# ~/.config/velodb/settings.toml\n[appearance]\ntheme = "${s.theme}"\nrow_density = "${s.rowDensity}"\nvibrancy = ${s.vibrancy}\ngrid_font_size = ${s.gridFontSize}\n\n[grid]\ndefault_limit = ${s.defaultLimit}\nnull_label = "${s.nullLabel}"\ntimezone = "${s.timezone}"\nthousand_separator = ${s.thousandSep}\nfk_jump_links = ${s.showFkJump}\n\n[editor]\nfont_size = ${s.editorFontSize}\nline_numbers = ${s.showLineNumbers}\ntab_size = ${s.tabSize}\nauto_uppercase_keywords = ${s.autoUppercase}\nvim_mode = ${s.vimMode}\n\n[safety]\nsafe_mode = ${state.safeMode}\nprod_confirm = ${s.prodConfirm}\nquery_timeout_secs = ${s.queryTimeout}\n\n[mcp]\nenabled = ${s.mcpEnabled}\nread_only = ${s.mcpReadOnly}\ntransport = "${s.mcpTransport}"`;
+  }
+
+  function renderSettingsPanel() {
+    const cat = state.settingsCat, s = state.settings;
+    document.querySelectorAll('[data-scat]').forEach(b => b.classList.toggle('active', b.dataset.scat === cat));
+    $('settingsPaneTitle').textContent = SETTING_META[cat][0];
+    $('settingsPaneDesc').textContent = SETTING_META[cat][1];
+
+    let html = '';
+    if (cat === 'general') {
+      html = `
+        <div class="setting-group">
+          <div class="setting-row">
+            <div class="setting-info"><span class="setting-label">界面主题</span><span class="setting-desc">默认跟随系统，可手动指定浅色或深色</span></div>
+            <div class="setting-ctrl"><select onchange="setSetting('theme', this.value)"><option value="system" ${s.theme==='system'?'selected':''}>跟随系统</option><option value="light" ${s.theme==='light'?'selected':''}>浅色</option><option value="dark" ${s.theme==='dark'?'selected':''}>深色</option></select></div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-info"><span class="setting-label">macOS 毛玻璃透明效果</span><span class="setting-desc">开启窗口与侧边栏毛玻璃半透明质感</span></div>
+            ${toggleHtml('vibrancy', s.vibrancy)}
+          </div>
+          <div class="setting-row">
+            <div class="setting-info"><span class="setting-label">等宽字体</span><span class="setting-desc">用于数据网格与 SQL 编辑器</span></div>
+            <div class="setting-ctrl"><select onchange="setSetting('fontFamily', this.value)">
+              <option value='"SF Mono", ui-monospace, monospace' ${s.fontFamily.includes('SF Mono')?'selected':''}>SF Mono</option>
+              <option value='"JetBrains Mono", ui-monospace, monospace' ${s.fontFamily.includes('JetBrains')?'selected':''}>JetBrains Mono</option>
+              <option value='"Fira Code", ui-monospace, monospace' ${s.fontFamily.includes('Fira')?'selected':''}>Fira Code</option>
+            </select></div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-info"><span class="setting-label">表格行高密度</span><span class="setting-desc">控制数据网格的行高紧凑度</span></div>
+            <div class="setting-ctrl"><select onchange="setSetting('rowDensity', this.value)">
+              <option value="compact" ${s.rowDensity==='compact'?'selected':''}>紧凑 (高密度)</option>
+              <option value="comfortable" ${s.rowDensity==='comfortable'?'selected':''}>舒适 (默认)</option>
+              <option value="spacious" ${s.rowDensity==='spacious'?'selected':''}>宽松</option>
+            </select></div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-info"><span class="setting-label">网格字号</span><span class="setting-desc">默认 12px，支持 11px–15px</span></div>
+            <div class="setting-ctrl"><select onchange="setSetting('gridFontSize', Number(this.value))">
+              ${[11,12,13,14,15].map(n => `<option value="${n}" ${s.gridFontSize===n?'selected':''}>${n} px</option>`).join('')}
+            </select></div>
+          </div>
+        </div>`;
+    } else if (cat === 'grid') {
+      html = `
+        <div class="setting-group">
+          <div class="setting-row">
+            <div class="setting-info"><span class="setting-label">默认分页 LIMIT</span><span class="setting-desc">打开表时默认拉取的行数</span></div>
+            <div class="setting-ctrl"><select onchange="setSetting('defaultLimit', Number(this.value))">
+              ${[50,100,500,1000].map(n => `<option value="${n}" ${s.defaultLimit===n?'selected':''}>${n} 行</option>`).join('')}
+            </select></div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-info"><span class="setting-label">NULL 空值显示</span><span class="setting-desc">单元格为空值时的占位文案（实时生效）</span></div>
+            <div class="setting-ctrl"><select onchange="setSetting('nullLabel', this.value)">
+              <option value="NULL" ${s.nullLabel==='NULL'?'selected':''}>NULL</option>
+              <option value="∅" ${s.nullLabel==='∅'?'selected':''}>∅</option>
+              <option value="(null)" ${s.nullLabel==='(null)'?'selected':''}>(null)</option>
+            </select></div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-info"><span class="setting-label">时间戳显示时区</span><span class="setting-desc">timestamptz 字段在网格中的显示时区</span></div>
+            <div class="setting-ctrl"><select onchange="setSetting('timezone', this.value)">
+              <option value="UTC" ${s.timezone==='UTC'?'selected':''}>UTC (+00:00)</option>
+              <option value="Local" ${s.timezone==='Local'?'selected':''}>本地时间 (Asia/Shanghai +08:00)</option>
+            </select></div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-info"><span class="setting-label">数值千分位逗号</span><span class="setting-desc">为 int4 / int8 数值列启用千分位逗号（如 240,000）</span></div>
+            ${toggleHtml('thousandSep', s.thousandSep)}
+          </div>
+          <div class="setting-row">
+            <div class="setting-info"><span class="setting-label">外键快捷跳转</span><span class="setting-desc">在外键列显示跳转图标，支持一键定位关联表</span></div>
+            ${toggleHtml('showFkJump', s.showFkJump)}
+          </div>
+        </div>`;
+    } else if (cat === 'editor') {
+      html = `
+        <div class="setting-group">
+          <div class="setting-row">
+            <div class="setting-info"><span class="setting-label">编辑器字号</span><span class="setting-desc">SQL 编辑器字号（实时生效）</span></div>
+            <div class="setting-ctrl"><select onchange="setSetting('editorFontSize', Number(this.value))">
+              ${[12,13,14,15,16].map(n => `<option value="${n}" ${s.editorFontSize===n?'selected':''}>${n} px</option>`).join('')}
+            </select></div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-info"><span class="setting-label">显示行号</span><span class="setting-desc">在 SQL 编辑器左侧显示行号槽</span></div>
+            ${toggleHtml('showLineNumbers', s.showLineNumbers)}
+          </div>
+          <div class="setting-row">
+            <div class="setting-info"><span class="setting-label">缩进空格数</span><span class="setting-desc">Tab 缩进与格式化使用的空格数</span></div>
+            <div class="setting-ctrl"><select onchange="setSetting('tabSize', Number(this.value))">
+              <option value="2" ${s.tabSize===2?'selected':''}>2 空格</option>
+              <option value="4" ${s.tabSize===4?'selected':''}>4 空格</option>
+            </select></div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-info"><span class="setting-label">关键字自动大写</span><span class="setting-desc">输入或格式化时自动将 SELECT / WHERE 转为大写</span></div>
+            ${toggleHtml('autoUppercase', s.autoUppercase)}
+          </div>
+          <div class="setting-row">
+            <div class="setting-info"><span class="setting-label">⌘⏎ 执行范围</span><span class="setting-desc">未选中文本时按 ⌘⏎ 的执行范围</span></div>
+            <div class="setting-ctrl"><select onchange="setSetting('runBehavior', this.value)">
+              <option value="statement" ${s.runBehavior==='statement'?'selected':''}>仅执行当前语句</option>
+              <option value="all" ${s.runBehavior==='all'?'selected':''}>执行标签页全部语句</option>
+            </select></div>
+          </div>
+        </div>`;
+    } else if (cat === 'safety') {
+      html = `
+        <div class="setting-group">
+          <div class="setting-row">
+            <div class="setting-info"><span class="setting-label">安全模式（暂存修改）</span><span class="setting-desc">默认将表格增删改写入暂存区，手动提交后生效</span></div>
+            ${toggleHtml('safeMode', state.safeMode)}
+          </div>
+          <div class="setting-row">
+            <div class="setting-info"><span class="setting-label">生产环境提交二次确认</span><span class="setting-desc">PROD 环境提交事务前强制弹出 SQL 预览确认</span></div>
+            ${toggleHtml('prodConfirm', s.prodConfirm)}
+          </div>
+          <div class="setting-row">
+            <div class="setting-info"><span class="setting-label">单次查询超时时间</span><span class="setting-desc">自动为会话设置 statement_timeout</span></div>
+            <div class="setting-ctrl"><select onchange="setSetting('queryTimeout', Number(this.value))">
+              <option value="15" ${s.queryTimeout===15?'selected':''}>15 秒</option>
+              <option value="30" ${s.queryTimeout===30?'selected':''}>30 秒</option>
+              <option value="60" ${s.queryTimeout===60?'selected':''}>60 秒</option>
+              <option value="0" ${s.queryTimeout===0?'selected':''}>不限制</option>
+            </select></div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-info"><span class="setting-label">连接心跳保活</span><span class="setting-desc">每 60 秒发送心跳，防止 SSH 隧道空闲断开</span></div>
+            ${toggleHtml('keepAlive', s.keepAlive)}
+          </div>
+        </div>`;
+    } else if (cat === 'keys') {
+      const binds = [
+        ['全局命令面板', '⌘ K'], ['打开偏好设置', '⌘ ,'], ['运行 SQL 查询', '⌘ ⏎'],
+        ['新建 SQL 标签页', '⌘ T'], ['格式化 SQL', '⇧ ⌥ F'], ['提交暂存修改', '⌘ S'],
+        ['切换右侧检视器', '⌘ ⌥ I']
+      ];
+      html = `
+        <div class="setting-group">
+          <div class="setting-row">
+            <div class="setting-info"><span class="setting-label">快捷键方案</span><span class="setting-desc">选择熟悉的快捷键预设方案</span></div>
+            <div class="setting-ctrl"><select onchange="setSetting('keymapPreset', this.value)">
+              <option value="macos" ${s.keymapPreset==='macos'?'selected':''}>macOS 原生 (TablePlus)</option>
+              <option value="datagrip" ${s.keymapPreset==='datagrip'?'selected':''}>JetBrains DataGrip</option>
+            </select></div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-info"><span class="setting-label">Vim 模式</span><span class="setting-desc">在 SQL 编辑器与数据网格中启用 Vim 导航</span></div>
+            ${toggleHtml('vimMode', s.vimMode)}
+          </div>
+        </div>
+        <div class="setting-group">
+          ${binds.map(([name, k]) => `
+            <div class="setting-row" style="padding:8px 14px;">
+              <span class="setting-label">${name}</span>
+              <span class="kbd" style="cursor:pointer" onclick="showToast('已就绪：按下新组合键即可重绑定 ${name}')">${k}</span>
+            </div>`).join('')}
+        </div>`;
+    } else if (cat === 'mcp') {
+      html = `
+        <div class="setting-group">
+          <div class="setting-row">
+            <div class="setting-info"><span class="setting-label">启用本地 MCP 服务</span><span class="setting-desc">允许外部 AI Agent（Claude Code / Cursor / Antigravity）接入</span></div>
+            ${toggleHtml('mcpEnabled', s.mcpEnabled)}
+          </div>
+          <div class="setting-row">
+            <div class="setting-info"><span class="setting-label">Agent 只读安全锁</span><span class="setting-desc">禁止外部 Agent 执行 INSERT / UPDATE / DELETE / DDL</span></div>
+            ${toggleHtml('mcpReadOnly', s.mcpReadOnly)}
+          </div>
+          <div class="setting-row">
+            <div class="setting-info"><span class="setting-label">传输协议</span><span class="setting-desc">选择 stdio 子进程或本地 SSE 监听</span></div>
+            <div class="setting-ctrl"><select onchange="setSetting('mcpTransport', this.value)">
+              <option value="stdio" ${s.mcpTransport==='stdio'?'selected':''}>stdio（推荐）</option>
+              <option value="sse" ${s.mcpTransport==='sse'?'selected':''}>HTTP / SSE (127.0.0.1:7842)</option>
+            </select></div>
+          </div>
+        </div>
+        <div style="display:flex; justify-content:flex-end;">
+          <button class="btn primary" onclick="closeModals(); $('mcpModal').classList.add('open');">查看并复制 mcp_config.json</button>
+        </div>`;
+    } else {
+      html = `
+        <div style="font-size:11.5px; color:var(--text-3);">实时配置预览 (~/.config/velodb/settings.toml)</div>
+        <pre class="code-block" style="max-height:260px;">${buildSettingsToml()}</pre>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn primary" onclick="navigator.clipboard?.writeText(buildSettingsToml()); showToast('已复制 settings.toml')">复制 settings.toml</button>
+          <button class="btn" onclick="showToast('已清理本地查询历史缓存')">清理查询历史</button>
+          <button class="btn danger" onclick="showToast('已恢复默认设置'); state.settings.theme='system'; state.settings.vibrancy=true; state.settings.rowDensity='comfortable'; state.settings.gridFontSize=12; applySettings(); renderSettingsPanel();">恢复默认设置</button>
+        </div>`;
+    }
+    $('settingsContent').innerHTML = html;
+  }
+
+  hydrateIcons();
+  syncSqlEditor();
+  renderTabs();
+  syncDrawer();
+  applySettings();
+  setConnected(false);
+</script>
+</body>
+</html>
